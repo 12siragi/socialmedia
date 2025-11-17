@@ -1,0 +1,22 @@
+/* Custom spacing classes */
+.ms-9 {
+  margin-left: 9rem;
+}
+
+.me-9 {
+  margin-right: 9rem;
+}
+
+.mx-9 {
+  margin-left: 9rem;
+  margin-right: 9rem;
+}
+
+/* Custom navbar spacing */
+.navbar-brand-container {
+  margin-right: 6rem;
+}
+
+.navbar-profile-container {
+  margin-left: 6rem;
+}
