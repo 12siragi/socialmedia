@@ -1,85 +1,66 @@
 // src/components/posts/CreatePost.jsx
 import React, { useState } from "react";
 import { Button, Modal, Form } from "react-bootstrap";
-import axiosService from "../../components/helpers/axios";
-import useUserActions from "../../hooks/user.actions"; // ✅ default import
+import axiosService from "../helpers/axios";
+import useUserActions from "../../hooks/user.actions";
 import Toaster from "../Toaster";
 
+function CreatePost(props) {
+  const { refresh } = props;
+  const [show, setShow] = useState(false);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const [toastType, setToastType] = useState("");
+  const [validated, setValidated] = useState(false);
+  const [form, setForm] = useState({});
 
-function CreatePost({ refresh }) {
+  // ✅ Fixed: Use useUserActions hook properly
   const userActions = useUserActions();
   const user = userActions.getUser();
-  
-  const [show, setShow] = useState(false);
-  const [validated, setValidated] = useState(false);
-  const [form, setForm] = useState({ body: "" });
-  const [toast, setToast] = useState({
-    show: false,
-    title: "",
-    message: "",
-    type: "success"
-  });
 
-  const handleClose = () => {
-    setShow(false);
-    setForm({ body: "" });
-    setValidated(false);
-  };
-
+  const handleClose = () => setShow(false);
   const handleShow = () => setShow(true);
-
-  const showToast = (title, message, type = "success") => {
-    setToast({
-      show: true,
-      title,
-      message,
-      type
-    });
-  };
 
   const handleSubmit = (event) => {
     event.preventDefault();
     const createPostForm = event.currentTarget;
-    
+
     if (createPostForm.checkValidity() === false) {
       event.stopPropagation();
-      setValidated(true);
-      return;
     }
-    
+
     setValidated(true);
-    
-    // ✅ Check if user exists before making request
-    if (!user || !user.id) {
-      showToast("Error!", "You must be logged in to create a post", "danger");
-      return;
-    }
-    
+
+    // ✅ FIXED: Use 'content' field name (not 'body') and remove manual author
     const data = {
-      body: form.body,  // ✅ Remove author field - let backend handle this
+      content: form.body,  // Backend expects 'content' field
     };
-    
-    console.log("Creating post with data:", data); // ✅ Debug log
-    console.log("User:", user); // ✅ Debug log
-    
+
+    console.log("Sending data:", data);
+    console.log("User:", user);
+
     axiosService
       .post("/api/post/posts/", data)
       .then((response) => {
-        console.log("Post created successfully:", response.data); // ✅ Debug log
-        showToast("Success!", "Post created successfully!", "success");
+        console.log("✅ Success:", response.data);
         handleClose();
-        if (refresh) refresh();
+        setToastMessage("Post created 🚀");
+        setToastType("success");
+        setForm({});
+        setShowToast(true);
+        refresh();
       })
       .catch((error) => {
-        console.log("Full error:", error.response); // ✅ Better error logging
-        showToast("Error!", `Failed to create post: ${error.response?.data?.detail || error.message}`, "danger");
+        console.error("❌ Error:", error.response?.data);
+        const errorMessage = error.response?.data?.detail || 
+                            error.response?.data?.content?.[0] ||
+                            JSON.stringify(error.response?.data) || 
+                            "An error occurred.";
+        setToastMessage(`Error: ${errorMessage}`);
+        setToastType("danger");
+        setShowToast(true);
       });
   };
-
-  // ✅ Don't render if user is not authenticated
-  if (!user) {
-    return null;
-  }
 
   return (
     <>
@@ -97,7 +78,6 @@ function CreatePost({ refresh }) {
         <Modal.Header closeButton className="border-0">
           <Modal.Title>Create Post</Modal.Title>
         </Modal.Header>
-        
         <Modal.Body className="border-0">
           <Form noValidate validated={validated} onSubmit={handleSubmit}>
             <Form.Group className="mb-3">
@@ -116,12 +96,8 @@ function CreatePost({ refresh }) {
             </Form.Group>
           </Form>
         </Modal.Body>
-        
-        <Modal.Footer className="border-0">
-          <Button variant="secondary" onClick={handleClose}>
-            Cancel
-          </Button>
-          <Button 
+        <Modal.Footer>
+          <Button
             variant="primary"
             onClick={handleSubmit}
             disabled={!form.body || form.body.trim() === ""}
@@ -130,21 +106,13 @@ function CreatePost({ refresh }) {
           </Button>
         </Modal.Footer>
       </Modal>
-
-      {toast.show && (
-        <div 
-          className={`alert alert-${toast.type === 'success' ? 'success' : 'danger'} position-fixed`}
-          style={{ top: '20px', right: '20px', zIndex: 9999 }}
-        >
-          <strong>{toast.title}</strong> {toast.message}
-          <button 
-            type="button" 
-            className="btn-close ms-2" 
-            onClick={() => setToast({ ...toast, show: false })}
-            aria-label="Close"
-          ></button>
-        </div>
-      )}
+      <Toaster
+        title="Post!"
+        message={toastMessage}
+        showToast={showToast}
+        type={toastType}
+        onClose={() => setShowToast(false)}
+      />
     </>
   );
 }
