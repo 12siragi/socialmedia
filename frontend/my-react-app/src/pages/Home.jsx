@@ -1,5 +1,5 @@
 import React from "react";
-import Layout from "../components/Layout"; // ✅ Fixed: changed from "./components/Layout" to "../components/Layout"
+import Layout from "../components/Layout";
 import { Row, Col, Image } from "react-bootstrap";
 import { randomAvatar } from "../components/utils";
 import useSWR from "swr";
@@ -9,14 +9,42 @@ import CreatePost from "../components/posts/CreatePost";
 import Post from "../components/posts/Post";
 
 function Home() {
-  // ✅ Change from "/api/post/" to "/api/post/posts/"
+  // ✅ Fixed: Use correct SWR configuration for better refresh handling
   const posts = useSWR("/api/post/posts/", fetcher, {
-    refreshInterval: 20000,
+    refreshInterval: 10000,        // Refresh every 10 seconds
+    revalidateOnFocus: true,       // Refresh when window gets focus
+    revalidateOnReconnect: true,   // Refresh on reconnect
   });
-
 
   const userActions = useUserActions();
   const user = userActions.getUser();
+
+  // 🔍 DEBUG: Enhanced logging
+  console.log("📊 Posts SWR data:", posts.data);
+  console.log("📊 Posts SWR error:", posts.error);
+  console.log("📊 Posts SWR loading:", posts.isLoading);
+  
+  // Debug posts structure
+  if (posts.data) {
+    console.log("🔍 Posts data structure:", posts.data);
+    if (posts.data.results) {
+      console.log("🔍 Number of posts:", posts.data.results.length);
+      console.log("🔍 Posts array:", posts.data.results);
+    } else if (Array.isArray(posts.data)) {
+      console.log("🔍 Posts is direct array, length:", posts.data.length);
+    }
+  }
+
+  // ✅ Enhanced refresh function that forces revalidation
+  const refreshPosts = async () => {
+    console.log("🔄 Refreshing posts...");
+    try {
+      await posts.mutate();
+      console.log("✅ Posts refreshed successfully");
+    } catch (error) {
+      console.error("❌ Error refreshing posts:", error);
+    }
+  };
 
   if (!user) {
     return (
@@ -29,6 +57,9 @@ function Home() {
       </Layout>
     );
   }
+
+  // ✅ Handle different response formats from backend
+  const postsArray = posts.data?.results || posts.data || [];
 
   return (
     <Layout>
@@ -46,14 +77,24 @@ function Home() {
               />
             </Col>
             <Col className="flex-grow-1">
-              <CreatePost refresh={posts.mutate} />
+              {/* ✅ Pass enhanced refresh function */}
+              <CreatePost refresh={refreshPosts} />
             </Col>
           </Row>
           
           <Row className="my-4">
-            {posts.data?.results?.map((post, index) => (
-              <Post key={post.id || index} post={post} refresh={posts.mutate} />
-            ))}
+            {/* ✅ Handle both paginated and direct array responses */}
+            {postsArray.length > 0 ? (
+              postsArray.map((post, index) => (
+                <Post key={post.id || `post-${index}`} post={post} refresh={refreshPosts} />
+              ))
+            ) : (
+              !posts.isLoading && (
+                <div className="text-center my-4">
+                  <p className="text-muted">No posts yet. Create your first post!</p>
+                </div>
+              )
+            )}
           </Row>
           
           {posts.isLoading && (
@@ -61,12 +102,6 @@ function Home() {
               <div className="spinner-border text-primary" role="status">
                 <span className="visually-hidden">Loading posts...</span>
               </div>
-            </div>
-          )}
-          
-          {posts.data && posts.data.results?.length === 0 && (
-            <div className="text-center my-4">
-              <p className="text-muted">No posts yet. Create your first post!</p>
             </div>
           )}
         </Col>
