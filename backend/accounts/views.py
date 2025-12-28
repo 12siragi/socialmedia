@@ -1,17 +1,24 @@
+# accounts/views.py
+from rest_framework import viewsets, status
 from rest_framework.generics import GenericAPIView, RetrieveAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.pagination import PageNumberPagination
 
+from .models import CustomUser
 from .serializers import (
+    CustomUserSerializer,
     UserRegistrationSerializer,
     UserLoginSerializer,
-    CustomUserSerializer
 )
+from .permissions import IsOwnerOrReadOnly
 
 
-# User Registration
+# ----------------------------
+# Auth Views
+# ----------------------------
+
 class UserRegistrationAPIView(GenericAPIView):
     permission_classes = (AllowAny,)
     serializer_class = UserRegistrationSerializer
@@ -22,7 +29,6 @@ class UserRegistrationAPIView(GenericAPIView):
         user = serializer.save()
 
         token = RefreshToken.for_user(user)
-
         data = CustomUserSerializer(user).data
         data["tokens"] = {
             "refresh": str(token),
@@ -32,8 +38,6 @@ class UserRegistrationAPIView(GenericAPIView):
         return Response(data, status=status.HTTP_201_CREATED)
 
 
-
-# User Login
 class UserLoginAPIView(GenericAPIView):
     permission_classes = (AllowAny,)
     serializer_class = UserLoginSerializer
@@ -44,7 +48,6 @@ class UserLoginAPIView(GenericAPIView):
 
         user = serializer.validated_data
         token = RefreshToken.for_user(user)
-
         data = CustomUserSerializer(user).data
         data["tokens"] = {
             "refresh": str(token),
@@ -54,8 +57,6 @@ class UserLoginAPIView(GenericAPIView):
         return Response(data, status=status.HTTP_200_OK)
 
 
-
-# User Logout (Blacklists refresh token)
 class UserLogoutAPIView(GenericAPIView):
     permission_classes = (IsAuthenticated,)
 
@@ -72,11 +73,27 @@ class UserLogoutAPIView(GenericAPIView):
             )
 
 
-
-# Get Current User Info
 class UserInfoAPIView(RetrieveAPIView):
     permission_classes = (IsAuthenticated,)
     serializer_class = CustomUserSerializer
 
     def get_object(self):
         return self.request.user
+
+
+# ----------------------------
+# User CRUD ViewSet
+# ----------------------------
+
+class SmallPagination(PageNumberPagination):
+    page_size = 5  # matches your frontend “Suggested people”
+
+class UserViewSet(viewsets.ModelViewSet):
+    queryset = CustomUser.objects.all()
+    serializer_class = CustomUserSerializer
+    permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
+    pagination_class = SmallPagination
+
+    def get_queryset(self):
+        # Optional: exclude the requesting user from listing if needed
+        return CustomUser.objects.all().exclude(id=self.request.user.id)
