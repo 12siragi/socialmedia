@@ -1,28 +1,26 @@
 from rest_framework import serializers
 from comment.models import Comment
 
-
 class CommentSerializer(serializers.ModelSerializer):
+    liked = serializers.SerializerMethodField()
+    likes_count = serializers.IntegerField(read_only=True)
+
     class Meta:
         model = Comment
-        fields = ["id", "post", "author", "content", "created_at", "updated_at"]
-        read_only_fields = ["post", "author", "created_at", "updated_at"]
+        fields = ["id", "post", "author", "content", "created_at", "updated_at", "liked", "likes_count"]
+        read_only_fields = ["post", "author", "created_at", "updated_at", "likes_count"]
+
+    def get_liked(self, obj):
+        user = self.context['request'].user
+        return user in obj.liked_by.all()
 
     def validate_author(self, value):
-        """
-        Prevent users from creating comments for other users.
-        The author must always be the logged-in user.
-        """
         request_user = self.context["request"].user
         if value != request_user:
             raise serializers.ValidationError("You cannot create a comment for another user.")
         return value
 
     def to_representation(self, instance):
-        """
-        Modify how the comment is returned in API responses.
-        Instead of just showing IDs, we return useful author info.
-        """
         rep = super().to_representation(instance)
         rep["author"] = {
             "id": instance.author.id,
@@ -31,6 +29,6 @@ class CommentSerializer(serializers.ModelSerializer):
         }
         rep["post"] = {
             "id": instance.post.id,
-            "content": instance.post.content[:50]  # show only first 50 chars of post
+            "content": instance.post.content[:50]
         }
         return rep

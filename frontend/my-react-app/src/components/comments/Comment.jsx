@@ -12,7 +12,7 @@ function Comment({ comment, refresh }) {
   const user = getUser();
 
   // 🔹 State
-  const [liked, setLiked] = useState(comment.liked);
+  const [liked, setLiked] = useState(comment.liked || false);
   const [likesCount, setLikesCount] = useState(comment.likes_count || 0);
   const [isEditing, setIsEditing] = useState(false);
   const [content, setContent] = useState(comment.content);
@@ -23,26 +23,26 @@ function Comment({ comment, refresh }) {
     user?.email === comment.author?.email ||
     user?.email === comment.author;
 
-  // ❤️ Like / Unlike comment
+  // ❤️ LIKE / UNLIKE COMMENT — ✅ CORRECT ENDPOINT
   const handleLike = async () => {
     try {
-      await axiosService.post(
-        `/api/post/${comment.post}/comment/${comment.id}/like/`
+      const res = await axiosService.post(
+        `/api/comment/post/${comment.post.id}/comment/${comment.id}/like/`
       );
-      setLiked(!liked);
-      setLikesCount(liked ? likesCount - 1 : likesCount + 1);
+      setLiked(res.data.liked);
+      setLikesCount(res.data.likes_count);
     } catch (err) {
       console.error("Like error", err);
     }
   };
 
-  // ✏️ Update comment
+  // ✏️ UPDATE COMMENT — ✅ CONSISTENT ENDPOINT
   const handleUpdate = async () => {
     if (!content.trim()) return;
 
     try {
       await axiosService.put(
-        `/api/post/${comment.post}/comment/${comment.id}/`,
+        `/api/comment/post/${comment.post.id}/comment/${comment.id}/`,
         { content }
       );
       setIsEditing(false);
@@ -52,11 +52,11 @@ function Comment({ comment, refresh }) {
     }
   };
 
-  // 🗑 Delete comment
+  // 🗑 DELETE COMMENT — ✅ CONSISTENT ENDPOINT
   const handleDelete = async () => {
     try {
       await axiosService.delete(
-        `/api/post/${comment.post}/comment/${comment.id}/`
+        `/api/comment/post/${comment.post.id}/comment/${comment.id}/`
       );
       setShowDelete(false);
       refresh();
@@ -133,7 +133,7 @@ function Comment({ comment, refresh }) {
                 </>
               )}
 
-              <div className="d-flex align-items-center text-muted">
+              <div className="d-flex align-items-center text-muted mt-1">
                 <LikeOutlined
                   onClick={handleLike}
                   style={{
@@ -151,7 +151,7 @@ function Comment({ comment, refresh }) {
         </Card.Body>
       </Card>
 
-      {/* 🗑 Delete confirmation */}
+      {/* 🗑 DELETE CONFIRMATION */}
       <Modal show={showDelete} onHide={() => setShowDelete(false)} centered>
         <Modal.Header closeButton>
           <Modal.Title>Delete Comment</Modal.Title>
