@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { Button, Form, InputGroup, Image } from "react-bootstrap";
-import { randomAvatar } from "../utils";
 import axiosService from "../helpers/axios";
 import useUserActions from "../../hooks/user.actions";
 
@@ -41,7 +40,7 @@ function CreateComment({ post, refresh }) {
     <Form onSubmit={handleSubmit} className="mb-3">
       <InputGroup>
         <Image
-          src={randomAvatar()}
+          src={user.avatar}
           roundedCircle
           width={32}
           height={32}

@@ -4,30 +4,33 @@ import { Card, Dropdown, Button, Form, Modal, Image } from "react-bootstrap";
 import { LikeOutlined } from "@ant-design/icons";
 import { format } from "timeago.js";
 import axiosService from "../helpers/axios";
-import { randomAvatar } from "../utils";
 import useUserActions from "../../hooks/user.actions";
 
 function Comment({ comment, refresh }) {
   const { getUser } = useUserActions();
   const user = getUser();
 
+  // 🔐 Normalize author (object OR string)
+  const author =
+    typeof comment.author === "object"
+      ? comment.author
+      : { email: comment.author };
+
+  // 🔐 Ownership check (SAFE)
+  const isAuthor = user?.email && author?.email && user.email === author.email;
+
   // 🔹 State
-  const [liked, setLiked] = useState(comment.liked || false);
-  const [likesCount, setLikesCount] = useState(comment.likes_count || 0);
+  const [liked, setLiked] = useState(!!comment.liked);
+  const [likesCount, setLikesCount] = useState(comment.likes_count ?? 0);
   const [isEditing, setIsEditing] = useState(false);
-  const [content, setContent] = useState(comment.content);
+  const [content, setContent] = useState(comment.content || "");
   const [showDelete, setShowDelete] = useState(false);
 
-  // 🔐 Check ownership
-  const isAuthor =
-    user?.email === comment.author?.email ||
-    user?.email === comment.author;
-
-  // ❤️ LIKE / UNLIKE COMMENT — ✅ CORRECT ENDPOINT
+  // ❤️ LIKE / UNLIKE
   const handleLike = async () => {
     try {
       const res = await axiosService.post(
-        `/api/comment/post/${comment.post.id}/comment/${comment.id}/like/`
+        `/api/comment/post/${comment.post?.id}/comment/${comment.id}/like/`
       );
       setLiked(res.data.liked);
       setLikesCount(res.data.likes_count);
@@ -36,13 +39,13 @@ function Comment({ comment, refresh }) {
     }
   };
 
-  // ✏️ UPDATE COMMENT — ✅ CONSISTENT ENDPOINT
+  // ✏️ UPDATE
   const handleUpdate = async () => {
     if (!content.trim()) return;
 
     try {
       await axiosService.put(
-        `/api/comment/post/${comment.post.id}/comment/${comment.id}/`,
+        `/api/comment/post/${comment.post?.id}/comment/${comment.id}/`,
         { content }
       );
       setIsEditing(false);
@@ -52,11 +55,11 @@ function Comment({ comment, refresh }) {
     }
   };
 
-  // 🗑 DELETE COMMENT — ✅ CONSISTENT ENDPOINT
+  // 🗑 DELETE
   const handleDelete = async () => {
     try {
       await axiosService.delete(
-        `/api/comment/post/${comment.post.id}/comment/${comment.id}/`
+        `/api/comment/post/${comment.post?.id}/comment/${comment.id}/`
       );
       setShowDelete(false);
       refresh();
@@ -70,17 +73,21 @@ function Comment({ comment, refresh }) {
       <Card className="border-0 mb-2">
         <Card.Body className="p-2">
           <div className="d-flex align-items-start">
+            {/* 🧠 Avatar fallback */}
             <Image
-              src={randomAvatar()}
+              src={author?.avatar || "/default-avatar.png"}
               roundedCircle
               width={32}
               height={32}
               className="me-2"
+              onError={(e) => {
+                e.target.src = "/default-avatar.png";
+              }}
             />
 
             <div className="flex-grow-1 bg-light rounded p-2">
               <div className="d-flex justify-content-between">
-                <strong>{comment.author?.username || "User"}</strong>
+                <strong>{author?.username || author?.email || "User"}</strong>
 
                 {isAuthor && (
                   <Dropdown align="end">
@@ -143,7 +150,7 @@ function Comment({ comment, refresh }) {
                 />
                 <small className="ms-1">{likesCount}</small>
                 <small className="ms-3">
-                  {format(comment.created_at)}
+                  {comment.created_at ? format(comment.created_at) : ""}
                 </small>
               </div>
             </div>
