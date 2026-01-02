@@ -3,9 +3,11 @@ from .models import Post
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from rest_framework.validators import UniqueValidator
+from accounts.serializers import CustomUserSerializer
+
 
 class PostSerializer(serializers.ModelSerializer):
-    author = serializers.StringRelatedField(read_only=True)  # Add this line
+    author = CustomUserSerializer(read_only=True)  # Nested serializer
     likes_count = serializers.SerializerMethodField()
 
     class Meta:

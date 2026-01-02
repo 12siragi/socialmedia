@@ -4,6 +4,7 @@ import ProtectedRoute from "./routes/ProtectedRoute";
 import Home from "./pages/Home";
 import Registration from "./pages/Registration";
 import Login from "./pages/LoginForm"; // 
+import Profile from "./pages/Profile";
 
 function App() {
   return (
@@ -16,7 +17,9 @@ function App() {
           </ProtectedRoute>
         }
       />
+      
       <Route path="/login/" element={<Login />} />
+      <Route path="/profile/:userId/" element={<Profile />} />
       <Route path="/register/" element={<Registration />} />
     </Routes>
   );

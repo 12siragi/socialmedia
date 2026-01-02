@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { format } from "timeago.js";
 import { LikeOutlined, CommentOutlined } from "@ant-design/icons";
 import { Image, Card, Dropdown, Modal, Button } from "react-bootstrap";
-import { randomAvatar } from "../utils";
 import axiosService from "../helpers/axios";
 import UpdatePost from "./UpdatePost";
 import CreateComment from "../comments/CreateComment";
@@ -17,7 +16,7 @@ function Post({ post, refresh, user }) {
   const [loadingComments, setLoadingComments] = useState(false);
 
   const isAuthor =
-    user?.email === post.author?.email || user?.email === post.author;
+    user?.email === post.author?.email || user?.email === post.author?.email;
 
   const handleLikeClick = async () => {
     try {
@@ -80,16 +79,20 @@ function Post({ post, refresh, user }) {
         <Card.Body>
           <Card.Title className="d-flex justify-content-between align-items-start">
             <div className="d-flex">
+              {/* ✅ Author Avatar */}
               <Image
-                src={randomAvatar()}
+                src={post.author?.avatar || "/default-avatar.png"}
                 roundedCircle
                 width={48}
                 height={48}
                 className="me-2 border border-primary"
               />
               <div>
-                <p className="m-0">{post.author?.name || post.author}</p>
-                <small className="text-muted">{format(post.created)}</small>
+                {/* ✅ Author Name */}
+                <p className="m-0">
+                  {post.author?.full_name || post.author?.email || "Unknown"}
+                </p>
+                <small className="text-muted">{format(post.created_at)}</small>
               </div>
             </div>
 
@@ -117,6 +120,16 @@ function Post({ post, refresh, user }) {
           </Card.Title>
 
           <Card.Text>{post.content}</Card.Text>
+
+          {/* Optional Post Image */}
+          {post.image && (
+            <Image
+              src={post.image}
+              alt="Post Image"
+              fluid
+              className="mt-2 rounded"
+            />
+          )}
         </Card.Body>
 
         <Card.Footer className="bg-white border-0">
@@ -153,10 +166,10 @@ function Post({ post, refresh, user }) {
                 <small className="text-muted">No comments yet</small>
               ) : (
                 comments.map((comment) => (
-                  <Comment 
-                    key={comment.id} 
-                    comment={comment} 
-                    refresh={refreshComments} 
+                  <Comment
+                    key={comment.id}
+                    comment={comment}
+                    refresh={refreshComments}
                   />
                 ))
               )}

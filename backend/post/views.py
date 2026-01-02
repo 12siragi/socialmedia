@@ -15,10 +15,11 @@ class PostViewSet(viewsets.ModelViewSet):
         serializer.save(author=self.request.user)
 
     # 🔹 Custom action to like/unlike a post
-    @action(detail=True, methods=["post"])
+    @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
     def like(self, request, pk=None):
         post = self.get_object()
         user = request.user
+
         if user in post.likes.all():
             post.likes.remove(user)
             return Response({"status": "unliked"}, status=status.HTTP_200_OK)

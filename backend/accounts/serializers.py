@@ -1,18 +1,41 @@
+import os
 from rest_framework import serializers
 from django.contrib.auth import authenticate
+from django.conf import settings
 from .models import CustomUser
 
 
-# Serializer to return user info
+
+
 class CustomUserSerializer(serializers.ModelSerializer):
-    full_name = serializers.ReadOnlyField()  # auto-generated
+    full_name = serializers.ReadOnlyField()
 
     class Meta:
         model = CustomUser
-        fields = ("id", "first_name", "last_name", "full_name", "email")
+        fields = ("id", "first_name", "last_name", "full_name", "email", "avatar")
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        request = self.context.get("request")
+
+        avatar_url = representation.get("avatar")
+
+        # Check if avatar exists and the file actually exists on disk
+        if avatar_url and os.path.exists(os.path.join(settings.MEDIA_ROOT, avatar_url)):
+            # Build absolute URL if in debug/dev mode and request exists
+            if request:
+                representation["avatar"] = request.build_absolute_uri(avatar_url)
+        else:
+            # Use default avatar if no file or missing
+            representation["avatar"] = settings.DEFAULT_AVATAR_URL
+
+        return representation
 
 
-# Serializer for user registration
+
+# ----------------------------
+# Registration serializer
+# ----------------------------
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password1 = serializers.CharField(write_only=True, min_length=8)
     password2 = serializers.CharField(write_only=True, min_length=8)
@@ -30,13 +53,13 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         password = validated_data.pop("password1")
         validated_data.pop("password2")
-
-        # Create user using custom manager (hashes password)
         user = CustomUser.objects.create_user(password=password, **validated_data)
         return user
 
 
-# Serializer for user login
+# ----------------------------
+# Login serializer
+# ----------------------------
 class UserLoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)

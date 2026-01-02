@@ -95,5 +95,11 @@ class UserViewSet(viewsets.ModelViewSet):
     pagination_class = SmallPagination
 
     def get_queryset(self):
-        # Optional: exclude the requesting user from listing if needed
-        return CustomUser.objects.all().exclude(id=self.request.user.id)
+        return CustomUser.objects.exclude(id=self.request.user.id)
+
+    # This ensures serializer gets the request object
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["request"] = self.request
+        return context
+
