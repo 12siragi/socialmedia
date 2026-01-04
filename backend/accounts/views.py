@@ -89,15 +89,18 @@ class SmallPagination(PageNumberPagination):
     page_size = 5  # matches your frontend “Suggested people”
 
 class UserViewSet(viewsets.ModelViewSet):
-    queryset = CustomUser.objects.all()
     serializer_class = CustomUserSerializer
     permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
     pagination_class = SmallPagination
 
     def get_queryset(self):
-        return CustomUser.objects.exclude(id=self.request.user.id)
+        # When listing users (suggested people)
+        if self.action == "list":
+            return CustomUser.objects.exclude(id=self.request.user.id)
 
-    # This ensures serializer gets the request object
+        # When retrieving a profile (or update/delete)
+        return CustomUser.objects.all()
+
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context["request"] = self.request

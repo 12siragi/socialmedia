@@ -1,13 +1,22 @@
-import React from "react";
+import React, { createContext, useState } from "react";
 import Navigationbar from "./Navbar";
 
-function Layout(props) {
-  return (
-    <div>
-      <Navigationbar />
+// Create the context
+export const Context = createContext();
 
-      <div className="container m-5">{props.children}</div>
-    </div>
+function Layout({ children }) {
+  const [toaster, setToaster] = useState({
+    show: false,
+    type: "",
+    message: "",
+    title: "",
+  });
+
+  return (
+    <Context.Provider value={{ toaster, setToaster }}>
+      <Navigationbar />
+      <div className="container m-5">{children}</div>
+    </Context.Provider>
   );
 }
 

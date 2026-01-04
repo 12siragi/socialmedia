@@ -11,6 +11,7 @@ router.register(r"post", PostViewSet, basename="post")
 post_router = routers.NestedSimpleRouter(router, r"post", lookup="post")
 post_router.register(r"comment", CommentViewSet, basename="post-comments")
 
+
 urlpatterns = [
     path("", include(router.urls)),
     path("", include(post_router.urls)),

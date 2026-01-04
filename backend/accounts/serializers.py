@@ -1,10 +1,8 @@
-import os
 from rest_framework import serializers
 from django.contrib.auth import authenticate
 from django.conf import settings
+from urllib.parse import urljoin
 from .models import CustomUser
-
-
 
 
 class CustomUserSerializer(serializers.ModelSerializer):
@@ -15,22 +13,36 @@ class CustomUserSerializer(serializers.ModelSerializer):
         fields = ("id", "first_name", "last_name", "full_name", "email", "avatar")
 
     def to_representation(self, instance):
+        """
+        Override to ensure avatar returns a full URL.
+        Uses default avatar if none exists.
+        """
         representation = super().to_representation(instance)
         request = self.context.get("request")
+        avatar_field = representation.get("avatar")
 
-        avatar_url = representation.get("avatar")
-
-        # Check if avatar exists and the file actually exists on disk
-        if avatar_url and os.path.exists(os.path.join(settings.MEDIA_ROOT, avatar_url)):
-            # Build absolute URL if in debug/dev mode and request exists
-            if request:
-                representation["avatar"] = request.build_absolute_uri(avatar_url)
+        if avatar_field:
+            # If already an absolute URL, leave it
+            if avatar_field.startswith("http"):
+                representation["avatar"] = avatar_field
+            else:
+                # Build absolute URL with request if available
+                if request:
+                    representation["avatar"] = request.build_absolute_uri(avatar_field)
+                else:
+                    # Fallback for non-request context
+                    representation["avatar"] = urljoin(settings.MEDIA_URL, avatar_field)
         else:
-            # Use default avatar if no file or missing
-            representation["avatar"] = settings.DEFAULT_AVATAR_URL
+            # Default avatar
+            default_avatar = getattr(settings, "DEFAULT_AVATAR_URL", "/media/avatars/default.png")
+            if default_avatar.startswith("http"):
+                representation["avatar"] = default_avatar
+            elif request:
+                representation["avatar"] = request.build_absolute_uri(default_avatar)
+            else:
+                representation["avatar"] = default_avatar
 
         return representation
-
 
 
 # ----------------------------
@@ -46,7 +58,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         read_only_fields = ("full_name",)
 
     def validate(self, attrs):
-        if attrs['password1'] != attrs['password2']:
+        if attrs["password1"] != attrs["password2"]:
             raise serializers.ValidationError("Passwords do not match!")
         return attrs
 
