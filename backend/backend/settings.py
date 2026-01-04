@@ -46,7 +46,10 @@ INSTALLED_APPS = [
     'post',
     'django_extensions',
     'comment',
+    'django_extensions',
 ]
+
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -194,5 +197,4 @@ CORS_ALLOWED_ORIGINS = [
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'uploads'
 
-DEFAULT_AVATAR_URL = "https://avatars.dicebear.com/api/
-identicon/.svg"
+DEFAULT_AVATAR_URL = "https://avatars.dicebear.com/api/identicon/.svg"
