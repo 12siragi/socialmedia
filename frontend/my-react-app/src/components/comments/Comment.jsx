@@ -10,23 +10,21 @@ function Comment({ comment, refresh }) {
   const { getUser } = useUserActions();
   const user = getUser();
 
-  // 🔐 Normalize author (object OR string)
+  // Normalize author object
   const author =
-    typeof comment.author === "object"
-      ? comment.author
-      : { email: comment.author };
+    typeof comment.author === "object" ? comment.author : { email: comment.author };
 
-  // 🔐 Ownership check (SAFE)
+  // Ownership check
   const isAuthor = user?.email && author?.email && user.email === author.email;
 
-  // 🔹 State
+  // State
   const [liked, setLiked] = useState(!!comment.liked);
   const [likesCount, setLikesCount] = useState(comment.likes_count ?? 0);
   const [isEditing, setIsEditing] = useState(false);
   const [content, setContent] = useState(comment.content || "");
   const [showDelete, setShowDelete] = useState(false);
 
-  // ❤️ LIKE / UNLIKE
+  // Like / unlike
   const handleLike = async () => {
     try {
       const res = await axiosService.post(
@@ -39,10 +37,9 @@ function Comment({ comment, refresh }) {
     }
   };
 
-  // ✏️ UPDATE
+  // Update comment
   const handleUpdate = async () => {
     if (!content.trim()) return;
-
     try {
       await axiosService.put(
         `/api/comment/post/${comment.post?.id}/comment/${comment.id}/`,
@@ -55,7 +52,7 @@ function Comment({ comment, refresh }) {
     }
   };
 
-  // 🗑 DELETE
+  // Delete comment
   const handleDelete = async () => {
     try {
       await axiosService.delete(
@@ -73,7 +70,7 @@ function Comment({ comment, refresh }) {
       <Card className="border-0 mb-2">
         <Card.Body className="p-2">
           <div className="d-flex align-items-start">
-            {/* 🧠 Avatar fallback */}
+            {/* Avatar fallback */}
             <Image
               src={author?.avatar || "/default-avatar.png"}
               roundedCircle
@@ -87,15 +84,11 @@ function Comment({ comment, refresh }) {
 
             <div className="flex-grow-1 bg-light rounded p-2">
               <div className="d-flex justify-content-between">
-                <strong>{author?.username || author?.email || "User"}</strong>
+                <strong>{author?.username || author?.full_name || author?.email || "User"}</strong>
 
                 {isAuthor && (
                   <Dropdown align="end">
-                    <Dropdown.Toggle
-                      variant="light"
-                      size="sm"
-                      className="border-0 p-0"
-                    >
+                    <Dropdown.Toggle variant="light" size="sm" className="border-0 p-0">
                       ⋮
                     </Dropdown.Toggle>
 
@@ -103,10 +96,7 @@ function Comment({ comment, refresh }) {
                       <Dropdown.Item onClick={() => setIsEditing(true)}>
                         Edit
                       </Dropdown.Item>
-                      <Dropdown.Item
-                        className="text-danger"
-                        onClick={() => setShowDelete(true)}
-                      >
+                      <Dropdown.Item className="text-danger" onClick={() => setShowDelete(true)}>
                         Delete
                       </Dropdown.Item>
                     </Dropdown.Menu>
@@ -114,8 +104,9 @@ function Comment({ comment, refresh }) {
                 )}
               </div>
 
+              {/* Comment content / edit mode */}
               {!isEditing ? (
-                <p className="mb-1">{comment.content}</p>
+                <p className="mb-1">{content}</p>
               ) : (
                 <>
                   <Form.Control
@@ -128,25 +119,18 @@ function Comment({ comment, refresh }) {
                     <Button size="sm" onClick={handleUpdate}>
                       Save
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="ms-2"
-                      onClick={() => setIsEditing(false)}
-                    >
+                    <Button size="sm" variant="secondary" className="ms-2" onClick={() => setIsEditing(false)}>
                       Cancel
                     </Button>
                   </div>
                 </>
               )}
 
+              {/* Like and timestamp */}
               <div className="d-flex align-items-center text-muted mt-1">
                 <LikeOutlined
                   onClick={handleLike}
-                  style={{
-                    color: liked ? "#0D6EFD" : "#6c757d",
-                    cursor: "pointer",
-                  }}
+                  style={{ color: liked ? "#0D6EFD" : "#6c757d", cursor: "pointer" }}
                 />
                 <small className="ms-1">{likesCount}</small>
                 <small className="ms-3">
@@ -158,14 +142,12 @@ function Comment({ comment, refresh }) {
         </Card.Body>
       </Card>
 
-      {/* 🗑 DELETE CONFIRMATION */}
+      {/* Delete confirmation modal */}
       <Modal show={showDelete} onHide={() => setShowDelete(false)} centered>
         <Modal.Header closeButton>
           <Modal.Title>Delete Comment</Modal.Title>
         </Modal.Header>
-        <Modal.Body>
-          Are you sure you want to delete this comment?
-        </Modal.Body>
+        <Modal.Body>Are you sure you want to delete this comment?</Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setShowDelete(false)}>
             Cancel

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { format } from "timeago.js";
-import { LikeOutlined, CommentOutlined } from "@ant-design/icons";
+import { LikeOutlined, CommentOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
 import { Image, Card, Dropdown, Modal, Button } from "react-bootstrap";
 import axiosService from "../helpers/axios";
 import UpdatePost from "./UpdatePost";
@@ -15,8 +15,8 @@ function Post({ post, refresh, user }) {
   const [comments, setComments] = useState([]);
   const [loadingComments, setLoadingComments] = useState(false);
 
-  const isAuthor =
-    user?.email === post.author?.email || user?.email === post.author?.email;
+  // ✅ Check author by ID (more reliable than email)
+  const isAuthor = user?.id === post.author?.id;
 
   const handleLikeClick = async () => {
     try {
@@ -79,7 +79,7 @@ function Post({ post, refresh, user }) {
         <Card.Body>
           <Card.Title className="d-flex justify-content-between align-items-start">
             <div className="d-flex">
-              {/* ✅ Author Avatar */}
+              {/* Author Avatar */}
               <Image
                 src={post.author?.avatar || "/default-avatar.png"}
                 roundedCircle
@@ -88,7 +88,6 @@ function Post({ post, refresh, user }) {
                 className="me-2 border border-primary"
               />
               <div>
-                {/* ✅ Author Name */}
                 <p className="m-0">
                   {post.author?.full_name || post.author?.email || "Unknown"}
                 </p>
@@ -96,27 +95,33 @@ function Post({ post, refresh, user }) {
               </div>
             </div>
 
-            <Dropdown align="end">
-              <Dropdown.Toggle variant="light" size="sm" className="border-0 p-0">
-                ⋮
-              </Dropdown.Toggle>
+            {/* Only show dropdown if user is the author */}
+            {isAuthor && (
+              <Dropdown align="end">
+                <Dropdown.Toggle
+                  variant="light"
+                  size="sm"
+                  className="border-0 p-0"
+                >
+                  ⋮
+                </Dropdown.Toggle>
 
-              <Dropdown.Menu>
-                {isAuthor ? (
-                  <>
+                <Dropdown.Menu>
+                  <Dropdown.Item as="div" className="d-flex align-items-center gap-2">
+                    <EditOutlined />
                     <UpdatePost post={post} refresh={refresh} />
-                    <Dropdown.Item
-                      className="text-danger"
-                      onClick={() => setShowDelete(true)}
-                    >
-                      Delete
-                    </Dropdown.Item>
-                  </>
-                ) : (
-                  <Dropdown.Item disabled>No actions</Dropdown.Item>
-                )}
-              </Dropdown.Menu>
-            </Dropdown>
+                  </Dropdown.Item>
+
+                  <Dropdown.Item
+                    className="text-danger d-flex align-items-center gap-2"
+                    onClick={() => setShowDelete(true)}
+                  >
+                    <DeleteOutlined />
+                    Delete
+                  </Dropdown.Item>
+                </Dropdown.Menu>
+              </Dropdown>
+            )}
           </Card.Title>
 
           <Card.Text>{post.content}</Card.Text>
@@ -178,6 +183,7 @@ function Post({ post, refresh, user }) {
         </Card.Footer>
       </Card>
 
+      {/* Delete confirmation modal */}
       <Modal show={showDelete} onHide={() => setShowDelete(false)} centered>
         <Modal.Header closeButton>
           <Modal.Title>Delete Post</Modal.Title>

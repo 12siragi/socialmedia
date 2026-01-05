@@ -5,65 +5,69 @@ import axiosService from "../helpers/axios";
 import useUserActions from "../../hooks/user.actions";
 import Toaster from "../Toaster";
 
-function CreatePost(props) {
-  const { refresh } = props;
+function CreatePost({ refresh }) {
   const [show, setShow] = useState(false);
+  const [validated, setValidated] = useState(false);
+  const [form, setForm] = useState({ body: "" });
+
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
-  const [toastType, setToastType] = useState("");
-  const [validated, setValidated] = useState(false);
-  const [form, setForm] = useState({});
+  const [toastType, setToastType] = useState("success");
 
-  // ✅ Fixed: Use useUserActions hook properly
-  const userActions = useUserActions();
-  const user = userActions.getUser();
+  // ✅ Get logged-in user
+  const { getUser } = useUserActions();
+  const user = getUser();
 
-  const handleClose = () => setShow(false);
   const handleShow = () => setShow(true);
+  const handleClose = () => {
+    setShow(false);
+    setValidated(false);
+  };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    const createPostForm = event.currentTarget;
+    const formElement = event.currentTarget;
 
-    if (createPostForm.checkValidity() === false) {
+    if (formElement.checkValidity() === false) {
       event.stopPropagation();
+      setValidated(true);
+      return;
     }
 
     setValidated(true);
 
-    // ✅ FIXED: Use 'content' field name (not 'body') and remove manual author
     const data = {
-      content: form.body,  // Backend expects 'content' field
+      content: form.body, // backend expects 'content'
     };
 
-    console.log("Sending data:", data);
-    console.log("User:", user);
+    try {
+      const response = await axiosService.post("/api/post/posts/", data);
+      console.log("✅ Post created:", response.data);
 
-    axiosService
-      .post("/api/post/posts/", data)
-      .then((response) => {
-        console.log("✅ Success:", response.data);
-        handleClose();
-        setToastMessage("Post created 🚀");
-        setToastType("success");
-        setForm({});
-        setShowToast(true);
-        refresh();
-      })
-      .catch((error) => {
-        console.error("❌ Error:", error.response?.data);
-        const errorMessage = error.response?.data?.detail || 
-                            error.response?.data?.content?.[0] ||
-                            JSON.stringify(error.response?.data) || 
-                            "An error occurred.";
-        setToastMessage(`Error: ${errorMessage}`);
-        setToastType("danger");
-        setShowToast(true);
-      });
+      setToastMessage("Post created 🚀");
+      setToastType("success");
+      setForm({ body: "" });
+      setShow(false);
+      setShowToast(true);
+
+      refresh(); // Refresh posts on home page
+    } catch (error) {
+      console.error("❌ Failed to create post:", error.response?.data);
+      const errorMessage =
+        error.response?.data?.detail ||
+        error.response?.data?.content?.[0] ||
+        JSON.stringify(error.response?.data) ||
+        "An error occurred.";
+
+      setToastMessage(`Error: ${errorMessage}`);
+      setToastType("danger");
+      setShowToast(true);
+    }
   };
 
   return (
     <>
+      {/* Trigger input (fake input) */}
       <Form.Group className="my-3 w-75">
         <Form.Control
           className="py-2 rounded-pill border-primary text-primary"
@@ -74,7 +78,8 @@ function CreatePost(props) {
         />
       </Form.Group>
 
-      <Modal show={show} onHide={handleClose}>
+      {/* Create Post Modal */}
+      <Modal show={show} onHide={handleClose} centered>
         <Modal.Header closeButton className="border-0">
           <Modal.Title>Create Post</Modal.Title>
         </Modal.Header>
@@ -82,12 +87,12 @@ function CreatePost(props) {
           <Form noValidate validated={validated} onSubmit={handleSubmit}>
             <Form.Group className="mb-3">
               <Form.Control
-                name="body"
-                value={form.body || ""}
-                onChange={(e) => setForm({ ...form, body: e.target.value })}
                 as="textarea"
                 rows={3}
+                name="body"
                 placeholder="What's on your mind?"
+                value={form.body}
+                onChange={(e) => setForm({ ...form, body: e.target.value })}
                 required
               />
               <Form.Control.Feedback type="invalid">
@@ -100,12 +105,14 @@ function CreatePost(props) {
           <Button
             variant="primary"
             onClick={handleSubmit}
-            disabled={!form.body || form.body.trim() === ""}
+            disabled={!form.body.trim()}
           >
             Post
           </Button>
         </Modal.Footer>
       </Modal>
+
+      {/* Toast notifications */}
       <Toaster
         title="Post!"
         message={toastMessage}
