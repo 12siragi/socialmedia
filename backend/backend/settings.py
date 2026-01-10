@@ -27,7 +27,11 @@ SECRET_KEY = 'django-insecure-v4s^@fluo*)a8u^m(a4l4$#%bzx&mvfm$oe$lc(6yn_intj(l%
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    'postgram.onrender.com',
+    'localhost',
+    '127.0.0.1',
+]
 
 
 # Application definition
