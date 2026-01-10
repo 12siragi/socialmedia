@@ -20,13 +20,11 @@ function Profile() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Fetch user info + posts
+  // Fetch user info and posts
   const fetchProfile = async () => {
     try {
       setLoading(true);
-      setError(null);
 
-      // ✅ FIXED ENDPOINT
       const userRes = await axiosService.get(`/api/auth/user/${userId}/`);
       setProfileUser(userRes.data);
 
@@ -54,24 +52,16 @@ function Profile() {
     }
   };
 
+  // Navigate to edit profile page
   const handleEditProfile = () => {
     navigate("/profile/edit");
   };
 
-  // Initial load
+  // Fetch profile on page load
   useEffect(() => {
     if (userId) {
       fetchProfile();
     }
-  }, [userId]);
-
-  // Auto refresh posts every 20s
-  useEffect(() => {
-    const interval = setInterval(() => {
-      refreshPosts();
-    }, 20000);
-
-    return () => clearInterval(interval);
   }, [userId]);
 
   // Loading state
@@ -97,23 +87,20 @@ function Profile() {
     );
   }
 
+  // Main content
   return (
-    <Layout hasNavigationBack>
+    <Layout>
       <Row className="justify-content-center">
         <Col lg={8}>
-          {/* Profile info */}
-          <ProfileDetails
-            user={profileUser}
-            onEdit={handleEditProfile}
-            isOwner={currentUser?.id === profileUser?.id}
-          />
+          {/* User profile info */}
+          <ProfileDetails user={profileUser} onEdit={handleEditProfile} />
 
           {/* Posts header */}
           <div className="mb-3">
             <h4>Posts ({posts.length})</h4>
           </div>
 
-          {/* Posts */}
+          {/* Posts list */}
           {posts.length === 0 ? (
             <div className="text-center py-5">
               <p className="text-muted">No posts yet</p>

@@ -9,6 +9,9 @@ function UpdateProfileForm({ profile }) {
   const userActions = useUserActions();
   const { setToaster } = useContext(Context);
 
+  // ✅ Logged-in user (SOURCE OF TRUTH)
+  const currentUser = userActions.getUser();
+
   const [validated, setValidated] = useState(false);
   const [error, setError] = useState(null);
 
@@ -16,7 +19,6 @@ function UpdateProfileForm({ profile }) {
     first_name: profile.first_name || "",
     last_name: profile.last_name || "",
     bio: profile.bio || "",
-    avatar: profile.avatar || "",
   });
 
   const [avatar, setAvatar] = useState(null);
@@ -44,7 +46,8 @@ function UpdateProfileForm({ profile }) {
     }
 
     try {
-      await userActions.updateUser(profile.id, formData);
+      // ✅ UPDATE ONLY AUTHENTICATED USER
+      await userActions.updateUser(currentUser.id, formData);
 
       setToaster({
         type: "success",
