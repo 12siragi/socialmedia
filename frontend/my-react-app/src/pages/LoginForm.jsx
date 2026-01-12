@@ -10,7 +10,7 @@ function Login() {
         {/* Left side: introduction text */}
         <div className="col-md-6 d-flex align-items-center">
           <div className="content text-center px-4">
-            <h1 className="text-primary">Welcome to Postagram!</h1>
+            <h1 className="text-primary">Welcome to PingChart!</h1>
             <p className="content">
               Login now and start enjoying! <br />
               Or if you don't have an account, please{" "}

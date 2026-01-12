@@ -21,7 +21,7 @@ function Navigationbar() {
       <Container fluid>
         {/* Brand */}
         <Navbar.Brand className="fw-bold ms-3" href="#home">
-          Postagram
+          PingChart
         </Navbar.Brand>
 
         {/* Right - User Dropdown */}
