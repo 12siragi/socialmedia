@@ -15,7 +15,7 @@ SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", 'django-insecure-v4s^@fluo*)a8u
 # ---------------------------
 # DEBUG MODE
 # ---------------------------
-DEBUG = False  # Always False in production
+DEBUG = True  # Always False in production
 
 # ---------------------------
 # ALLOWED HOSTS
@@ -92,10 +92,15 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # ---------------------------
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',  # For production, consider PostgreSQL
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'socialmedia',
+        'USER': 'postgres',
+        'PASSWORD': 'postgres',
+        'HOST': '127.0.0.1',
+        'PORT': '5432',
     }
 }
+
 
 # ---------------------------
 # PASSWORD VALIDATORS
