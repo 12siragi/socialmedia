@@ -15,7 +15,7 @@ SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", 'django-insecure-v4s^@fluo*)a8u
 # ---------------------------
 # DEBUG MODE
 # ---------------------------
-DEBUG = True  # Always False in production
+DEBUG = False  # Always False in production
 
 # ---------------------------
 # ALLOWED HOSTS
