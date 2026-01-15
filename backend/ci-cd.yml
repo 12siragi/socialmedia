@@ -1,0 +1,28 @@
+name: Build and Test Backend
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create .env for tests
+        run: |
+          echo "SECRET_KEY=test_key
+          DATABASE_NAME=test_db
+          DATABASE_USER=test_user
+          DATABASE_PASSWORD=test_pass
+          DATABASE_HOST=localhost
+          DATABASE_PORT=5432
+          ENV=TESTING
+          DJANGO_ALLOWED_HOSTS=127.0.0.1,localhost" > .env
+
+      - name: Build containers
+        run: docker compose up -d --build
+
+      - name: Run tests
+        run: docker compose exec -T backend pytest
