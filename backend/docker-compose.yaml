@@ -1,0 +1,58 @@
+version: "3.9"
+
+services:
+  # 1. Django backend
+  django:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: socialmedia-backend
+    command: >
+      sh -c "python manage.py migrate --no-input &&
+             python manage.py collectstatic --noinput &&
+             gunicorn backend.wsgi:application --bind 0.0.0.0:8000"
+    volumes:
+      - .:/app
+      - static_volume:/app/static
+    env_file: .env
+    depends_on:
+      - postgres
+    networks:
+      - socialmedia-network
+
+  # 2. Postgres database
+  postgres:
+    image: postgres:15
+    container_name: socialmedia-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - socialmedia-network
+
+  # 3. NGINX reverse proxy
+  nginx:
+    image: nginx:latest
+    container_name: socialmedia-nginx
+    restart: always
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - static_volume:/app/static
+    depends_on:
+      - django
+    networks:
+      - socialmedia-network
+
+# Persistent volumes
+volumes:
+  postgres_data:
+  static_volume:
+
+# Shared network
+networks:
+  socialmedia-network:

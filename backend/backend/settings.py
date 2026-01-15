@@ -1,11 +1,16 @@
 from pathlib import Path
 from datetime import timedelta
 import os
+from dotenv import load_dotenv
 
 # ---------------------------
 # BASE DIRECTORY
 # ---------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+# Load .env file
+load_dotenv(BASE_DIR / ".env")
 
 # ---------------------------
 # SECRET KEY
@@ -15,7 +20,7 @@ SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", 'django-insecure-v4s^@fluo*)a8u
 # ---------------------------
 # DEBUG MODE
 # ---------------------------
-DEBUG = False  # Always False in production
+DEBUG = True # Always False in production
 
 # ---------------------------
 # ALLOWED HOSTS
@@ -91,15 +96,16 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # DATABASE
 # ---------------------------
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'socialmedia',
-        'USER': 'postgres',
-        'PASSWORD': 'postgres',
-        'HOST': '127.0.0.1',
-        'PORT': '5432',
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.environ.get("DB_NAME"),
+        "USER": os.environ.get("DB_USER"),
+        "PASSWORD": os.environ.get("DB_PASSWORD"),
+        "HOST": os.environ.get("DB_HOST"),
+        "PORT": os.environ.get("DB_PORT"),
     }
 }
+
 
 
 # ---------------------------
