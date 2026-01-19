@@ -26,10 +26,10 @@ DEBUG = False # Always False in production
 # ALLOWED HOSTS
 # ---------------------------
 ALLOWED_HOSTS = [
-    'socialmedia-backend-5ucx.onrender.com',  # Your Render URL
-    'postgram.onrender.com',                   # Optional older URL
-    'localhost',
-    '127.0.0.1',
+    "socialmedia-6.onrender.com",   # your current Render service
+    ".onrender.com",                # allow any subdomain on Render
+    "localhost",
+    "127.0.0.1",
 ]
 
 # ---------------------------
