@@ -26,8 +26,9 @@ DEBUG = False # Always False in production
 # ALLOWED HOSTS
 # ---------------------------
 ALLOWED_HOSTS = [
-    "socialmedia-6.onrender.com",   # your current Render service
-    ".onrender.com",                # allow any subdomain on Render
+    "pingchart.vercel.app",
+    "socialmedia-6.onrender.com",
+    ".onrender.com",
     "localhost",
     "127.0.0.1",
 ]
