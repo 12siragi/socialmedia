@@ -8,6 +8,8 @@ import Login from "./pages/LoginForm";
 import Profile from "./pages/Profile";
 import EditProfile from "./pages/EditProfile";
 
+console.log("VITE_API_URL:", import.meta.env.VITE_API_URL);
+
 function App() {
   return (
     <Routes>
