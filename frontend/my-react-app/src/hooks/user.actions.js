@@ -7,7 +7,7 @@ function useUserActions() {
 
   // ---------------- LOGIN ----------------
   const login = async (data) => {
-    const res = await axios.post(`${baseURL}/auth/login/`, data);
+    const res = await axios.post(`${baseURL}/api/auth/login/`, data);
     // Store user and tokens in localStorage
     setUserData(res.data);
     navigate("/");
@@ -16,7 +16,7 @@ function useUserActions() {
 
   // ---------------- REGISTER ----------------
   const register = async (data) => {
-    const res = await axios.post(`${baseURL}/auth/register/`, data);
+    const res = await axios.post(`${baseURL}/api/auth/register/`, data);
     setUserData(res.data);
     navigate("/");
     return res.data;
