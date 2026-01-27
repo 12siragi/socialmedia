@@ -16,7 +16,7 @@ const getRefreshToken = () => {
 
 // Create axios instance with base URL and headers
 const axiosService = axios.create({
-  baseURL:process.env.REACT_APP_API_URL,
+  baseURL: import.meta.env.VITE_API_URL,
   headers: {
     "Content-Type": "application/json",
   },
@@ -68,7 +68,7 @@ const refreshAuthLogic = async (failedRequest) => {
     .post("/api/auth/token/refresh/", {  // ✅ Fixed endpoint
       refresh: refreshToken,
     }, {
-      baseURL: process.env.REACT_APP_API_URL,
+      baseURL: import.meta.env.VITE_API_URL,
       headers: {
         "Content-Type": "application/json",
       },

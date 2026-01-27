@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 function useUserActions() {
   const navigate = useNavigate();
-  const baseURL = process.env.REACT_APP_API_URL;
+  const baseURL = import.meta.env.VITE_API_URL;
 
   // ---------------- LOGIN ----------------
   const login = async (data) => {
