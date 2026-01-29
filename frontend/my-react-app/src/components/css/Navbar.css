@@ -1,0 +1,104 @@
+/* Navbar base */
+.app-navbar {
+  border-bottom: 1px solid #2d3348;
+  padding: 0.75rem 0;
+  background-color: #1a1d2e;
+}
+
+/* Brand */
+.app-brand {
+  color: #8b5cf6;
+  font-size: 1.5rem;
+  font-weight: bold;
+  text-decoration: none;
+}
+
+/* Nav links with animated underline */
+.nav-link {
+  color: #e5e7eb !important;
+  position: relative;
+  transition: color 0.2s;
+}
+
+.nav-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -3px;
+  height: 2px;
+  width: 0;
+  background-color: #8b5cf6;
+  transition: width 0.3s ease;
+}
+
+.nav-link:hover::after,
+.nav-link.active::after {
+  width: 100%;
+}
+
+.nav-link:hover,
+.nav-link.active {
+  color: #8b5cf6 !important;
+}
+
+/* Toggle lines for mobile */
+.toggle-line {
+  display: block;
+  width: 22px;
+  height: 2px;
+  background: #fff;
+  margin: 4px 0;
+}
+
+/* Dropdown menu */
+.dropdown-menu {
+  background-color: #1a1d2e !important;
+  border: 1px solid #2d3348 !important;
+}
+
+/* Dropdown items */
+.dropdown-item {
+  color: #e5e7eb !important;
+}
+
+.dropdown-item:hover {
+  background-color: #2d3348 !important;
+}
+
+/* Dropdown header */
+.dropdown-header-custom {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #2d3348;
+}
+
+/* Flex helpers for centering */
+.navbar-spacer {
+  width: 140px; /* same width as user menu */
+}
+
+.navbar-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.navbar-user {
+  margin-left: auto;
+}
+
+/* Responsive adjustments */
+@media (max-width: 991px) {
+  .navbar-center {
+    position: static;
+    transform: none;
+    margin: 0 auto;
+  }
+
+  .navbar-spacer {
+    display: none;
+  }
+}
+
+.dropdown-header-custom small {
+  color: #a0aec0 !important;
+}

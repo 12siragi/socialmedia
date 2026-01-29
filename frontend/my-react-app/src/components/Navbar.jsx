@@ -2,11 +2,12 @@
 import React from "react";
 import { Navbar, Container, Image, NavDropdown, Nav } from "react-bootstrap";
 import { useNavigate, Link } from "react-router-dom";
-import useUserActions from "../hooks/user.actions"; // optional, if you have a user hook
+import useUserActions from "../hooks/user.actions";
+import "./css/Navbar.css";
 
 function Navigationbar() {
   const navigate = useNavigate();
-  const { getUser } = useUserActions(); // get logged-in user
+  const { getUser } = useUserActions();
   const user = getUser();
 
   const handleLogout = () => {
@@ -14,37 +15,80 @@ function Navigationbar() {
     navigate("/login/");
   };
 
-  if (!user) return null; // prevent errors if user is not loaded yet
+  if (!user) return null;
 
   return (
-    <Navbar bg="primary" variant="dark" expand="lg">
+    <Navbar className="app-navbar" expand="lg">
       <Container fluid>
         {/* Brand */}
-        <Navbar.Brand className="fw-bold ms-3" href="#home">
+        <Navbar.Brand as={Link} to="/" className="app-brand">
           PingChart
         </Navbar.Brand>
 
-        {/* Right - User Dropdown */}
-        <Nav className="ms-auto">
-          <NavDropdown
-            title={
-              <Image
-                src={user.avatar}
-                roundedCircle
-                width={36}
-                height={36}
-              />
-            }
-            align="end"
-          >
-            <NavDropdown.Item as={Link} to={`/profile/${user.id}/`}>
-              Profile
-            </NavDropdown.Item>
-            <NavDropdown.Item onClick={handleLogout}>
-              Logout
-            </NavDropdown.Item>
-          </NavDropdown>
-        </Nav>
+        {/* Mobile Toggle */}
+        <Navbar.Toggle aria-controls="navbar-nav">
+          <span className="toggle-line" />
+          <span className="toggle-line" />
+          <span className="toggle-line" />
+        </Navbar.Toggle>
+
+        {/* Collapsible Content */}
+        <Navbar.Collapse id="navbar-nav">
+          {/* Left spacer for centering */}
+          <div className="navbar-spacer" />
+
+          {/* Center links */}
+          <Nav className="navbar-center">
+            <Nav.Link as={Link} to="/" className="mx-2">
+              <i className="bi bi-house-door me-2" />
+              Home
+            </Nav.Link>
+            <Nav.Link as={Link} to="/explore" className="mx-2">
+              <i className="bi bi-compass me-2" />
+              Explore
+            </Nav.Link>
+            <Nav.Link as={Link} to="/messages" className="mx-2">
+              <i className="bi bi-chat-dots me-2" />
+              Messages
+            </Nav.Link>
+          </Nav>
+
+          {/* User menu right */}
+          <Nav className="navbar-user align-items-center">
+            <span className="text-light me-3 d-none d-md-inline">
+              {user.first_name || user.email}
+            </span>
+            <NavDropdown
+              align="end"
+              title={
+                <Image
+                  src={user.avatar}
+                  roundedCircle
+                  width={36}
+                  height={36}
+                />
+              }
+            >
+              <div className="dropdown-header-custom">
+                <div className="fw-bold text-white">
+                  {user.first_name} {user.last_name}
+                </div>
+                <small className="text-muted">{user.email}</small>
+              </div>
+
+              <NavDropdown.Item as={Link} to={`/profile/${user.id}/`}>
+                Profile
+              </NavDropdown.Item>
+              <NavDropdown.Item as={Link} to="/settings">
+                <i className="bi bi-gear me-2" />
+                Settings
+              </NavDropdown.Item>
+              <NavDropdown.Item onClick={handleLogout}>
+                Logout
+              </NavDropdown.Item>
+            </NavDropdown>
+          </Nav>
+        </Navbar.Collapse>
       </Container>
     </Navbar>
   );

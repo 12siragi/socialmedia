@@ -1,29 +1,39 @@
 // src/pages/Login.jsx
 import React from "react";
 import { Link } from "react-router-dom";
+import { Container, Row, Col } from "react-bootstrap";
 import LoginForm from "../components/forms/LoginForm";
+import "../components/css/Login.css";
 
 function Login() {
   return (
-    <div className="container">
-      <div className="row">
-        {/* Left side: introduction text */}
-        <div className="col-md-6 d-flex align-items-center">
-          <div className="content text-center px-4">
-            <h1 className="text-primary">Welcome to PingChart!</h1>
-            <p className="content">
-              Login now and start enjoying! <br />
-              Or if you don't have an account, please{" "}
-              <Link to="/register/">register</Link>.
-            </p>
-          </div>
-        </div>
+    <div className="login-page">
+      <Container>
+        <Row className="justify-content-center">
+          {/* Left side: introduction text */}
+          <Col md={6} className="d-flex align-items-center">
+            <div className="text-center text-md-start px-4">
+              <h1 className="login-welcome-title">
+                Welcome to PingChart!
+              </h1>
+              <p className="login-welcome-subtitle">
+                Login now and start enjoying our amazing features!
+              </p>
+              <p className="login-welcome-text">
+                Don't have an account yet?{" "}
+                <Link to="/register/" className="login-signup-link">
+                  Create one now
+                </Link>
+              </p>
+            </div>
+          </Col>
 
-        {/* Right side: login form */}
-        <div className="col-md-6 p-5">
-          <LoginForm />
-        </div>
-      </div>
+          {/* Right side: login form */}
+          <Col md={6} className="p-5">
+            <LoginForm />
+          </Col>
+        </Row>
+      </Container>
     </div>
   );
 }

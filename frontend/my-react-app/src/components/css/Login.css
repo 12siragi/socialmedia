@@ -1,0 +1,33 @@
+/* Login Page Container */
+.login-page {
+  min-height: 100vh;
+  background-color: #0f1118;
+  display: flex;
+  align-items: center;
+}
+
+/* Welcome Title */
+.login-welcome-title {
+  font-size: 3.5rem;
+  font-weight: bold;
+  margin-bottom: 1.5rem;
+  color: #8b5cf6;
+}
+
+/* Welcome Subtitle */
+.login-welcome-subtitle {
+  font-size: 1.25rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 1.5rem;
+}
+
+/* Welcome Text */
+.login-welcome-text {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Signup Link */
+.login-signup-link {
+  color: #8b5cf6;
+  text-decoration: none;
+}

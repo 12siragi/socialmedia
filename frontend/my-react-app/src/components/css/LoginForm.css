@@ -1,0 +1,79 @@
+/* Login Form Container */
+.login-form-container {
+  padding: 1.5rem;
+  border-radius: 0.75rem;
+  background-color: #1a1d2e;
+  border: 1px solid #2d3348;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+/* Form Labels */
+.login-form-container .form-label {
+  color: white;
+  font-weight: normal;
+}
+
+/* Form Controls (Input Fields) */
+.login-form-container .form-control {
+  padding: 0.5rem;
+  background-color: #1e2235;
+  border: 1px solid #2d3348;
+  color: #fff;
+  border-radius: 6px;
+}
+
+/* Remember Me Checkbox */
+.login-form-container .form-check-label {
+  color: white;
+  font-size: 14px;
+}
+
+/* Forgot Password Link */
+.forgot-password-link {
+  color: #8b5cf6;
+  font-size: 14px;
+  text-decoration: none;
+}
+
+/* Error Alert */
+.login-error-alert {
+  padding: 0.5rem;
+  font-size: 14px;
+}
+
+/* Sign In Button */
+.login-submit-btn {
+  padding: 0.5rem;
+  font-weight: 600;
+  background-color: #8b5cf6;
+  border: none;
+  border-radius: 6px;
+}
+
+/* Divider Line */
+.login-divider hr {
+  border-color: #2d3348;
+}
+
+/* Divider Text */
+.login-divider-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+  background-color: #1a1d2e;
+  color: #8e8e93;
+  font-size: 14px;
+}
+
+/* Social Login Buttons */
+.social-login-btn {
+  padding: 0.5rem;
+  background-color: #2d3348;
+  border: 1px solid #2d3348;
+  color: #fff;
+  border-radius: 6px;
+}

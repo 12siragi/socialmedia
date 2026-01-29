@@ -1,0 +1,41 @@
+/* Registration Page Container */
+.registration-page {
+  min-height: 100vh;
+  background-color: #0f1118;
+  display: flex;
+  align-items: center;
+  padding-top: 2rem;
+  padding-bottom: 2rem;
+}
+
+/* Welcome Title */
+.registration-welcome-title {
+  font-size: 3.5rem;
+  font-weight: bold;
+  margin-bottom: 1.5rem;
+  color: #8b5cf6;
+}
+
+/* Welcome Subtitle */
+.registration-welcome-subtitle {
+  font-size: 1.25rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 1rem;
+}
+
+/* Welcome Text */
+.registration-welcome-text {
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 1.5rem;
+}
+
+/* Sign In Link */
+.registration-signin-link {
+  color: #8b5cf6;
+  text-decoration: none;
+}
+
+/* Sign In Text Wrapper */
+.registration-signin-text {
+  color: rgba(255, 255, 255, 0.5);
+}
