@@ -1,0 +1,151 @@
+/* Home Page Styles */
+
+/* Loading Container */
+.home-loading-container {
+  min-height: 60vh;
+}
+
+/* Loading Spinner */
+.home-loading-spinner {
+  width: 3rem;
+  height: 3rem;
+  color: #8b5cf6;
+}
+
+/* Loading Text */
+.home-loading-text {
+  color: #8e8e93;
+}
+
+/* Left Sidebar - User Info Card */
+.home-user-card {
+  background-color: #1a1d2e;
+  border: 1px solid #2d3348;
+  top: 80px;
+}
+
+/* User Avatar */
+.home-user-avatar {
+  width: 80px;
+  height: 80px;
+  border: 3px solid #8b5cf6;
+  object-fit: cover;
+}
+
+/* User Stats Text */
+.home-user-stats-label {
+  color: #8e8e93;
+}
+
+/* Divider Line */
+.home-divider {
+  border-color: #2d3348;
+}
+
+/* Posts Loading/Empty State Card */
+.home-posts-state-card {
+  background-color: #1a1d2e;
+  border: 1px solid #2d3348;
+}
+
+/* Empty State Icon */
+.home-empty-icon {
+  color: #8e8e93;
+  margin-bottom: 1rem;
+}
+
+/* Empty State Text */
+.home-empty-text {
+  color: #8e8e93;
+}
+
+/* Spinner Color */
+.home-spinner {
+  color: #8b5cf6;
+}
+
+/* Spinner Text */
+.home-spinner-text {
+  color: #8e8e93;
+  margin: 0;
+}
+
+/* Load More Button */
+.home-load-more-btn {
+  background-color: #2d3348;
+  border: 1px solid #3d4358;
+  color: #e5e7eb;
+  border-radius: 8px;
+}
+
+.home-load-more-btn:hover {
+  background-color: #363a4f;
+  border-color: #8b5cf6;
+}
+
+/* Right Sidebar - Suggestions Card */
+.home-suggestions-card {
+  background-color: #1a1d2e;
+  border: 1px solid #2d3348;
+  top: 80px;
+}
+
+/* Suggestions Loading Spinner */
+.home-suggestions-spinner {
+  color: #8b5cf6;
+}
+
+/* No Suggestions Text */
+.home-no-suggestions {
+  color: #8e8e93;
+  font-size: 0.9rem;
+}
+
+/* See All Link */
+.home-see-all-link {
+  color: #8b5cf6;
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+/* Footer Card */
+.home-footer-card {
+  background-color: #1a1d2e;
+  border: 1px solid #2d3348;
+}
+
+/* Footer Links */
+.home-footer-link {
+  color: #6b7280;
+  text-decoration: none;
+  font-size: 0.8rem;
+}
+
+/* Footer Copyright */
+.home-footer-copyright {
+  color: #6b7280;
+  font-size: 0.75rem;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Sticky sidebar */
+.sticky-top {
+  position: sticky;
+  z-index: 10;
+}
+
+/* Link hover effects */
+a:hover {
+  opacity: 0.8;
+}
+
+/* Custom gap for smaller screens */
+@media (max-width: 768px) {
+  .g-4 {
+    gap: 1rem !important;
+  }
+}
