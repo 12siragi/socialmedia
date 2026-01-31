@@ -1,6 +1,5 @@
 {
   "buildCommand": "yarn build",
-  "outputDirectory": "frontend/my-react-app/dist",
-  "installCommand": "yarn install",
-  "rootDirectory": "frontend/my-react-app"
+  "outputDirectory": "dist",
+  "installCommand": "yarn install"
 }
