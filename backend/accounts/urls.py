@@ -7,7 +7,8 @@ from .views import (
     UserLoginAPIView,
     UserLogoutAPIView,
     UserInfoAPIView,
-    UserViewSet
+    UserViewSet,
+    VerifyEmailAPIView
 )
 
 router = DefaultRouter()
@@ -19,6 +20,7 @@ urlpatterns = [
     path('logout/', UserLogoutAPIView.as_view(), name='logout-user'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
     path('user/info/', UserInfoAPIView.as_view(), name='user-info'),  # current user info
+    path("verify-email/", VerifyEmailAPIView.as_view(), name="verify-email"),
 ]
 
 urlpatterns += router.urls  # <-- add the router URLs
