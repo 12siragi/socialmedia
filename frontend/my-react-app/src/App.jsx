@@ -7,12 +7,23 @@ import Registration from "./pages/Registration";
 import Login from "./pages/LoginForm";
 import Profile from "./pages/Profile";
 import EditProfile from "./pages/EditProfile";
-
-console.log("VITE_API_URL:", import.meta.env.VITE_API_URL);
+import VerifyEmail from "./pages/VerifyEmail";
+import CheckEmail from "./pages/CheckEmail";
 
 function App() {
   return (
     <Routes>
+      {/* ---------------- PUBLIC ROUTES ---------------- */}
+      <Route path="/login/" element={<Login />} />
+      <Route path="/register/" element={<Registration />} />
+
+      {/* This page shows after registration: check your inbox */}
+      <Route path="/verify-email-prompt/" element={<CheckEmail />} />
+
+      {/* Email verification link from email */}
+      <Route path="/verify-email" element={<VerifyEmail />} />
+
+      {/* ---------------- PROTECTED ROUTES ---------------- */}
       <Route
         path="/"
         element={
@@ -21,10 +32,6 @@ function App() {
           </ProtectedRoute>
         }
       />
-
-      <Route path="/login/" element={<Login />} />
-      <Route path="/register/" element={<Registration />} />
-
       <Route
         path="/profile/:userId/"
         element={
@@ -33,13 +40,23 @@ function App() {
           </ProtectedRoute>
         }
       />
-
       <Route
         path="/profile/:profileId/edit/"
         element={
           <ProtectedRoute>
             <EditProfile />
           </ProtectedRoute>
+        }
+      />
+
+      {/* Optional: 404 catch-all route */}
+      <Route
+        path="*"
+        element={
+          <div style={{ textAlign: "center", marginTop: "80px" }}>
+            <h2>404 - Page Not Found</h2>
+            <p>The page you are looking for does not exist.</p>
+          </div>
         }
       />
     </Routes>

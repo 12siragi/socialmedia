@@ -8,7 +8,6 @@ function useUserActions() {
   // ---------------- LOGIN ----------------
   const login = async (data) => {
     const res = await axios.post(`${baseURL}/api/auth/login/`, data);
-    // Store user and tokens in localStorage
     setUserData(res.data);
     navigate("/");
     return res.data;
@@ -17,9 +16,31 @@ function useUserActions() {
   // ---------------- REGISTER ----------------
   const register = async (data) => {
     const res = await axios.post(`${baseURL}/api/auth/register/`, data);
-    setUserData(res.data);
-    navigate("/");
+
+    // Instead of automatically logging in, store minimal data
+    localStorage.setItem(
+      "auth_temp",
+      JSON.stringify({
+        email: res.email,
+        message: res.message,
+      })
+    );
+
+    // Navigate to a "Check your email" page
+    navigate("/verify-email-prompt/");
     return res.data;
+  };
+
+  // ---------------- VERIFY EMAIL ----------------
+  const verifyEmail = async (uid, token) => {
+    try {
+      const res = await axios.get(
+        `${baseURL}/api/auth/verify-email/?uid=${uid}&token=${token}`
+      );
+      return res.data; // e.g., success message
+    } catch (error) {
+      throw error;
+    }
   };
 
   // ---------------- LOGOUT ----------------
@@ -36,13 +57,12 @@ function useUserActions() {
       },
     });
 
-    // Update user in localStorage
     const auth = JSON.parse(localStorage.getItem("auth")) || {};
     localStorage.setItem(
       "auth",
       JSON.stringify({
         ...auth,
-        user: res.data, // updated user including full avatar URL
+        user: res.data,
       })
     );
 
@@ -56,7 +76,7 @@ function useUserActions() {
       JSON.stringify({
         access: data.tokens.access,
         refresh: data.tokens.refresh,
-        user: data, // includes full avatar URL from serializer
+        user: data,
       })
     );
   };
@@ -79,6 +99,7 @@ function useUserActions() {
   return {
     login,
     register,
+    verifyEmail,
     logout,
     updateUser,
     getUser,
