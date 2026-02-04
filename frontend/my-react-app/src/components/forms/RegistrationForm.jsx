@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Form, Button, Row, Col } from "react-bootstrap";
+import { Form, Button, Row, Col, Spinner } from "react-bootstrap";
 import useUserActions from "../../hooks/user.actions";
 import "../css/RegistrationForm.css";
 
@@ -15,8 +15,9 @@ function RegistrationForm() {
   });
   const [error, setError] = useState(null);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     const formElement = event.currentTarget;
 
@@ -38,26 +39,44 @@ function RegistrationForm() {
 
     setValidated(true);
     setError(null);
+    setIsLoading(true);
 
-    const formData = form;
-    userActions.register(formData)
-      .catch((err) => {
-        const apiError = err.response?.data;
-        setError(
-          apiError?.detail ||
-          apiError?.email ||
-          "Registration failed"
-        );
-      });
+    try {
+      // ✅ This will redirect immediately and process in background
+      await userActions.register(form);
+      // User is already on verification page at this point
+    } catch (err) {
+      // ✅ Only show error if it happens BEFORE redirect
+      const apiError = err.response?.data;
+      
+      let errorMessage = "Registration failed";
+      
+      if (apiError?.detail) {
+        errorMessage = apiError.detail;
+      } else if (apiError?.email) {
+        errorMessage = Array.isArray(apiError.email) 
+          ? apiError.email[0] 
+          : apiError.email;
+      } else if (apiError?.password1) {
+        errorMessage = Array.isArray(apiError.password1)
+          ? apiError.password1[0]
+          : apiError.password1;
+      } else if (apiError?.non_field_errors) {
+        errorMessage = Array.isArray(apiError.non_field_errors)
+          ? apiError.non_field_errors[0]
+          : apiError.non_field_errors;
+      }
+      
+      setError(errorMessage);
+      setIsLoading(false);
+    }
   };
 
   const handleGoogleSignup = () => {
-    // Implement Google OAuth signup here
     console.log("Google signup clicked");
   };
 
   const handleGithubSignup = () => {
-    // Implement GitHub OAuth signup here
     console.log("GitHub signup clicked");
   };
 
@@ -81,6 +100,7 @@ function RegistrationForm() {
                 onChange={(e) => setForm({ ...form, first_name: e.target.value })}
                 required
                 className="py-2"
+                disabled={isLoading}
               />
               <Form.Control.Feedback type="invalid">
                 First name is required.
@@ -98,6 +118,7 @@ function RegistrationForm() {
                 onChange={(e) => setForm({ ...form, last_name: e.target.value })}
                 required
                 className="py-2"
+                disabled={isLoading}
               />
               <Form.Control.Feedback type="invalid">
                 Last name is required.
@@ -116,6 +137,7 @@ function RegistrationForm() {
             onChange={(e) => setForm({ ...form, email: e.target.value })}
             required
             className="py-2"
+            disabled={isLoading}
           />
           <Form.Control.Feedback type="invalid">
             Please provide a valid email address.
@@ -133,6 +155,7 @@ function RegistrationForm() {
             onChange={(e) => setForm({ ...form, password1: e.target.value })}
             required
             className="py-2"
+            disabled={isLoading}
           />
           <Form.Control.Feedback type="invalid">
             Password must be at least 8 characters.
@@ -153,6 +176,7 @@ function RegistrationForm() {
             onChange={(e) => setForm({ ...form, password2: e.target.value })}
             required
             className="py-2"
+            disabled={isLoading}
           />
           <Form.Control.Feedback type="invalid">
             Please confirm your password.
@@ -166,6 +190,7 @@ function RegistrationForm() {
             id="terms-checkbox"
             checked={agreedToTerms}
             onChange={(e) => setAgreedToTerms(e.target.checked)}
+            disabled={isLoading}
             label={
               <span className="registration-terms-label">
                 I agree to the{" "}
@@ -190,8 +215,23 @@ function RegistrationForm() {
           variant="primary" 
           type="submit" 
           className="w-100 py-2 mb-3 fw-semibold registration-submit-btn"
+          disabled={isLoading}
         >
-          Create Account
+          {isLoading ? (
+            <>
+              <Spinner
+                as="span"
+                animation="border"
+                size="sm"
+                role="status"
+                aria-hidden="true"
+                className="me-2"
+              />
+              Creating Account...
+            </>
+          ) : (
+            "Create Account"
+          )}
         </Button>
 
         {/* Divider */}
@@ -209,6 +249,7 @@ function RegistrationForm() {
               variant="outline-secondary"
               className="w-100 d-flex align-items-center justify-content-center py-2 social-signup-btn"
               onClick={handleGoogleSignup}
+              disabled={isLoading}
             >
               <svg className="me-2" width="18" height="18" viewBox="0 0 18 18">
                 <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/>
@@ -224,6 +265,7 @@ function RegistrationForm() {
               variant="outline-secondary"
               className="w-100 d-flex align-items-center justify-content-center py-2 social-signup-btn"
               onClick={handleGithubSignup}
+              disabled={isLoading}
             >
               <svg className="me-2" width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>

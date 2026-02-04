@@ -4,11 +4,12 @@ import ProtectedRoute from "./routes/ProtectedRoute";
 
 import Home from "./pages/Home";
 import Registration from "./pages/Registration";
-import Login from "./pages/LoginForm";
+import Login from "./pages/Login";
 import Profile from "./pages/Profile";
 import EditProfile from "./pages/EditProfile";
 import VerifyEmail from "./pages/VerifyEmail";
 import CheckEmail from "./pages/CheckEmail";
+import EmailVerifiedSuccess   from "./pages/EmailVerifiedSuccess";
 
 function App() {
   return (
@@ -21,7 +22,8 @@ function App() {
       <Route path="/verify-email-prompt/" element={<CheckEmail />} />
 
       {/* Email verification link from email */}
-      <Route path="/verify-email" element={<VerifyEmail />} />
+      <Route path="/email-verify-failed" element={<VerifyEmail />} />
+      <Route path="/email-verified-success/" element={<EmailVerifiedSuccess />} />
 
       {/* ---------------- PROTECTED ROUTES ---------------- */}
       <Route

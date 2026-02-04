@@ -9,8 +9,8 @@ def send_verification_email(user):
     token = account_activation_token.make_token(user)
     uid = urlsafe_base64_encode(force_bytes(user.pk))
     
-    # ✅ Use FRONTEND_URL from settings instead of hardcoding
-    verify_url = f"{settings.FRONTEND_URL}/verify-email?uid={uid}&token={token}"
+    # ✅ CHANGE THIS - Use /api/auth/ instead of /api/accounts/
+    verify_url = f"{settings.BACKEND_URL}/api/auth/verify-email/?uid={uid}&token={token}"
     
     subject = "Verify your PingChart email"
     message = f"""

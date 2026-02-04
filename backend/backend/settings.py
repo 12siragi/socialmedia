@@ -20,7 +20,7 @@ SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", 'django-insecure-v4s^@fluo*)a8u
 # ---------------------------
 # DEBUG MODE
 # ---------------------------
-DEBUG = False # Always False in production
+DEBUG = True # Always False in production
 
 # ---------------------------
 # ALLOWED HOSTS
@@ -234,4 +234,5 @@ EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD")
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL")
 
-FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+FRONTEND_URL = os.environ.get("FRONTEND_URL")
+BACKEND_URL = os.environ.get("BACKEND_URL")

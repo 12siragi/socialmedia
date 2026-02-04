@@ -21,6 +21,21 @@
   border: 1px solid #2d3348;
   color: #fff;
   border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.registration-form-container .form-control:focus {
+  background-color: #1e2235;
+  border-color: #8b5cf6;
+  color: #fff;
+  box-shadow: 0 0 0 0.2rem rgba(139, 92, 246, 0.25);
+}
+
+/* Disabled state */
+.registration-form-container .form-control:disabled {
+  background-color: #151824;
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* Form Text Helper */
@@ -40,24 +55,47 @@
   text-decoration: none;
 }
 
+.registration-terms-link:hover {
+  color: #a78bfa;
+  text-decoration: underline;
+}
+
 /* Error Alert */
 .registration-error-alert {
-  padding: 0.5rem;
+  padding: 0.75rem;
   font-size: 14px;
+  border-radius: 6px;
 }
 
 /* Register Button */
 .registration-submit-btn {
-  padding: 0.5rem;
+  padding: 0.75rem;
   font-weight: 600;
   background-color: #8b5cf6;
   border: none;
   border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.registration-submit-btn:hover:not(:disabled) {
+  background-color: #7c3aed;
+}
+
+.registration-submit-btn:disabled {
+  background-color: #6d28d9;
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Divider Container */
+.position-relative {
+  position: relative;
 }
 
 /* Divider Line */
-.registration-divider hr {
+.registration-divider {
   border-color: #2d3348;
+  margin: 1rem 0;
 }
 
 /* Divider Text */
@@ -66,8 +104,7 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  padding-left: 0.5rem;
-  padding-right: 0.5rem;
+  padding: 0 0.75rem;
   background-color: #1a1d2e;
   color: #8e8e93;
   font-size: 14px;
@@ -75,9 +112,28 @@
 
 /* Social Signup Buttons */
 .social-signup-btn {
-  padding: 0.5rem;
+  padding: 0.75rem;
   background-color: #2d3348;
   border: 1px solid #2d3348;
   color: #fff;
   border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.social-signup-btn:hover:not(:disabled) {
+  background-color: #363b54;
+  border-color: #363b54;
+  color: #fff;
+}
+
+.social-signup-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Spinner styles */
+.spinner-border-sm {
+  width: 1rem;
+  height: 1rem;
+  border-width: 0.15em;
 }

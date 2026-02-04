@@ -1,0 +1,117 @@
+/* Verify Email Page Styles */
+
+/* Main Container */
+.verify-email-container {
+  min-height: 100vh;
+  background-color: #0f1118;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+/* Card Wrapper */
+.verify-email-card {
+  background-color: #1a1d2e;
+  border: 1px solid #2d3348;
+  border-radius: 0.75rem;
+  padding: 3rem;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+/* Icon Container */
+.verify-email-icon {
+  color: #8b5cf6;
+  margin-bottom: 1.5rem;
+}
+
+/* Title */
+.verify-email-title {
+  color: #fff;
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 1.5rem;
+}
+
+/* Description Text */
+.verify-email-text {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 1rem;
+  margin-bottom: 1rem;
+  line-height: 1.6;
+}
+
+/* Email Display */
+.verify-email-address {
+  color: #8b5cf6;
+  font-weight: 600;
+}
+
+/* Resend Button */
+.verify-email-resend-btn {
+  background-color: #8b5cf6;
+  border: none;
+  color: #fff;
+  border-radius: 6px;
+  padding: 0.75rem 2rem;
+  font-weight: 600;
+  margin-top: 1.5rem;
+}
+
+.verify-email-resend-btn:hover {
+  background-color: #7c3aed;
+}
+
+.verify-email-resend-btn:focus {
+  background-color: #7c3aed;
+  box-shadow: 0 0 0 0.2rem rgba(139, 92, 246, 0.25);
+}
+
+/* Status Message */
+.verify-email-status {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+/* Success Status */
+.verify-email-status-success {
+  background-color: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: #22c55e;
+}
+
+/* Error Status */
+.verify-email-status-error {
+  background-color: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+}
+
+/* Back to Login Link */
+.verify-email-back-link {
+  color: #8b5cf6;
+  text-decoration: none;
+  font-size: 0.9rem;
+  margin-top: 2rem;
+  display: inline-block;
+}
+
+.verify-email-back-link:hover {
+  color: #a78bfa;
+  text-decoration: underline;
+}
+
+/* Add to your existing VerifyEmailPrompt.css */
+
+.verify-email-status-warning {
+  background-color: #fff3cd;
+  color: #856404;
+  padding: 0.75rem;
+  border-radius: 6px;
+  margin-top: 1rem;
+  border: 1px solid #ffeaa7;
+}

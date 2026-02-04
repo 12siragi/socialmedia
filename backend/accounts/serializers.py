@@ -66,6 +66,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         password = validated_data.pop("password1")
         validated_data.pop("password2")
         user = CustomUser.objects.create_user(password=password, **validated_data)
+
         return user
 
 
@@ -80,6 +81,8 @@ class UserLoginSerializer(serializers.Serializer):
         email = data.get("email")
         password = data.get("password")
         user = authenticate(email=email, password=password)
-        if user and user.is_active:
+        if user:
+            if not user.is_email_verified:
+                raise serializers.ValidationError("Email not verified. Please check your inbox.")
             return user
         raise serializers.ValidationError("Incorrect credentials!")

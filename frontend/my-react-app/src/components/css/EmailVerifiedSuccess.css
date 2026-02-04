@@ -1,0 +1,74 @@
+/* Email Verified Success Page Styles */
+
+/* Main Container */
+.email-verified-success-container {
+  min-height: 100vh;
+  background-color: #0f1118;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+/* Card Wrapper */
+.email-verified-success-card {
+  background-color: #1a1d2e;
+  border: 1px solid #2d3348;
+  border-radius: 0.75rem;
+  padding: 3rem;
+  max-width: 500px;
+  width: 100%;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
+
+/* Success Icon Container */
+.email-verified-success-icon-wrapper {
+  width: 80px;
+  height: 80px;
+  background-color: #10b981;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1.5rem;
+}
+
+/* Title */
+.email-verified-success-title {
+  color: #fff;
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+}
+
+/* Description Text */
+.email-verified-success-text {
+  color: #8e8e93;
+  font-size: 1rem;
+  margin-bottom: 2rem;
+}
+
+/* Login Button */
+.email-verified-success-btn {
+  background-color: #8b5cf6;
+  border: none;
+  padding: 0.75rem;
+  font-weight: 600;
+  border-radius: 6px;
+}
+
+.email-verified-success-btn:hover {
+  background-color: #7c3aed;
+}
+
+.email-verified-success-btn:focus {
+  background-color: #7c3aed;
+  box-shadow: 0 0 0 0.2rem rgba(139, 92, 246, 0.25);
+}
+
+/* Auto-redirect Notice */
+.email-verified-success-notice {
+  color: #8e8e93;
+  font-size: 12px;
+  margin: 0;
+}

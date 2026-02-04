@@ -1,6 +1,6 @@
 services:
   # 1. Django backend
-  django:
+  socialmedia-backend:
     build:
       context: .
       dockerfile: Dockerfile
@@ -44,7 +44,7 @@ services:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - static_volume:/app/static:ro
     depends_on:
-      - django
+      - socialmedia-backend
     networks:
       - socialmedia-network
 

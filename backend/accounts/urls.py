@@ -8,7 +8,8 @@ from .views import (
     UserLogoutAPIView,
     UserInfoAPIView,
     UserViewSet,
-    VerifyEmailAPIView
+    VerifyEmailAPIView,
+    ResendVerificationEmailAPIView
 )
 
 router = DefaultRouter()
@@ -21,6 +22,7 @@ urlpatterns = [
     path('token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
     path('user/info/', UserInfoAPIView.as_view(), name='user-info'),  # current user info
     path("verify-email/", VerifyEmailAPIView.as_view(), name="verify-email"),
+    path('resend-verification-email/', ResendVerificationEmailAPIView.as_view(), name='resend-verification-email'),
 ]
 
 urlpatterns += router.urls  # <-- add the router URLs
