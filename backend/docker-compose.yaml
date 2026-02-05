@@ -1,5 +1,17 @@
 services:
-  # 1. Django backend
+  # 1. Redis cache
+  redis:
+    image: redis:latest
+    container_name: socialmedia-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - socialmedia-network
+    restart: unless-stopped
+
+  # 2. Django backend
   socialmedia-backend:
     build:
       context: .
@@ -15,12 +27,12 @@ services:
     env_file:
       - .env
     depends_on:
-      postgres:
-        condition: service_started
+      - postgres
+      - redis
     networks:
       - socialmedia-network
 
-  # 2. Postgres database
+  # 3. Postgres database
   postgres:
     image: postgres:15
     container_name: socialmedia-postgres
@@ -32,8 +44,9 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - socialmedia-network
+    restart: unless-stopped
 
-  # 3. NGINX reverse proxy
+  # 4. NGINX reverse proxy
   nginx:
     image: nginx:latest
     container_name: socialmedia-nginx
@@ -51,6 +64,7 @@ services:
 volumes:
   postgres_data:
   static_volume:
+  redis_data:  # ✅ Added Redis data persistence
 
 networks:
   socialmedia-network:
