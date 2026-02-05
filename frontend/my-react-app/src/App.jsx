@@ -9,7 +9,10 @@ import Profile from "./pages/Profile";
 import EditProfile from "./pages/EditProfile";
 import VerifyEmail from "./pages/VerifyEmail";
 import CheckEmail from "./pages/CheckEmail";
-import EmailVerifiedSuccess   from "./pages/EmailVerifiedSuccess";
+import EmailVerifiedSuccess from "./pages/EmailVerifiedSuccess";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
+import ResetPasswordFailed from "./pages/ResetPasswordFailed";
 
 function App() {
   return (
@@ -18,12 +21,15 @@ function App() {
       <Route path="/login/" element={<Login />} />
       <Route path="/register/" element={<Registration />} />
 
-      {/* This page shows after registration: check your inbox */}
+      {/* Email verification routes */}
       <Route path="/verify-email-prompt/" element={<CheckEmail />} />
-
-      {/* Email verification link from email */}
       <Route path="/email-verify-failed" element={<VerifyEmail />} />
       <Route path="/email-verified-success/" element={<EmailVerifiedSuccess />} />
+
+      {/* Password reset routes */}
+      <Route path="/forgot-password/" element={<ForgotPassword />} />
+      <Route path="/reset-password/" element={<ResetPassword />} />
+      <Route path="/reset-password-failed/" element={<ResetPasswordFailed />} />
 
       {/* ---------------- PROTECTED ROUTES ---------------- */}
       <Route

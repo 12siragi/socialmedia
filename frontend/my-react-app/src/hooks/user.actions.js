@@ -57,7 +57,6 @@ function useUserActions() {
     }
   };
 
-
   // ---------------- RESEND VERIFICATION EMAIL ----------------
   const resendVerificationEmail = async (email) => {
     try {
@@ -68,6 +67,34 @@ function useUserActions() {
       return res.data;
     } catch (error) {
       console.error("Resend verification error:", error);
+      throw error;
+    }
+  };
+
+  // ---------------- FORGOT PASSWORD ----------------
+  const forgotPassword = async (email) => {
+    try {
+      const res = await axios.post(
+        `${baseURL}/api/auth/forgot-password/`,
+        { email }
+      );
+      return res.data;
+    } catch (error) {
+      console.error("Forgot password error:", error);
+      throw error;
+    }
+  };
+
+  // ---------------- RESET PASSWORD ----------------
+  const resetPassword = async (uid, token, password) => {
+    try {
+      const res = await axios.post(
+        `${baseURL}/api/auth/reset-password/`,
+        { uid, token, password }
+      );
+      return res.data;
+    } catch (error) {
+      console.error("Reset password error:", error);
       throw error;
     }
   };
@@ -212,6 +239,8 @@ function useUserActions() {
     login,
     register,
     resendVerificationEmail,
+    forgotPassword,        // ✅ Added
+    resetPassword,         // ✅ Added
     logout,
     updateUser,
     refreshAccessToken,
