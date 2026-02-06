@@ -33,7 +33,7 @@ function Profile() {
       const postsRes = await axiosService.get(
         `/api/post/posts/?author=${userId}`
       );
-      setPosts(postsRes.data);
+      setPosts(postsRes.data.results || []);
     } catch (err) {
       console.error("Failed to fetch profile:", err);
       setError(err.response?.status === 404 ? "User not found" : "Failed to load profile");
@@ -48,7 +48,7 @@ function Profile() {
       const res = await axiosService.get(
         `/api/post/posts/?author=${userId}`
       );
-      setPosts(res.data);
+      setPosts(res.data.results || []);
     } catch (err) {
       console.error("Failed to refresh posts:", err);
     }

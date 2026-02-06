@@ -1,17 +1,25 @@
 import axios from "axios";
 import createAuthRefreshInterceptor from "axios-auth-refresh";
 
-// ✅ Fixed token getter functions
+// ✅ Fixed token getter functions - matches user.actions.js structure
 const getAccessToken = () => {
-  const auth = JSON.parse(localStorage.getItem("auth"));
-  // Check multiple possible locations for tokens
-  return auth?.access || auth?.user?.tokens?.access || auth?.tokens?.access;
+  try {
+    const auth = JSON.parse(localStorage.getItem("auth"));
+    return auth?.access || null;
+  } catch (error) {
+    console.error("Error getting access token:", error);
+    return null;
+  }
 };
 
 const getRefreshToken = () => {
-  const auth = JSON.parse(localStorage.getItem("auth"));
-  // Check multiple possible locations for tokens
-  return auth?.refresh || auth?.user?.tokens?.refresh || auth?.tokens?.refresh;
+  try {
+    const auth = JSON.parse(localStorage.getItem("auth"));
+    return auth?.refresh || null;
+  } catch (error) {
+    console.error("Error getting refresh token:", error);
+    return null;
+  }
 };
 
 // Create axios instance with base URL and headers
@@ -22,83 +30,88 @@ const axiosService = axios.create({
   },
 });
 
-// ✅ Enhanced request interceptor with debugging
-axiosService.interceptors.request.use(async (config) => {
-  const accessToken = getAccessToken();
-  
-  console.log("🔑 Checking for access token...");
-  console.log("🔑 Token found:", accessToken ? "YES" : "NO");
-  
-  if (accessToken) {
-    config.headers.Authorization = `Bearer ${accessToken}`;
-    console.log("✅ Authorization header added:", `Bearer ${accessToken.substring(0, 20)}...`);
-  } else {
-    console.log("❌ No access token found in localStorage");
-    console.log("📦 Auth data:", JSON.parse(localStorage.getItem("auth")));
-  }
-  
-  return config;
-});
-
-// ✅ Enhanced response interceptor with debugging
-axiosService.interceptors.response.use(
-  (res) => {
-    console.log("✅ Request successful:", res.config.url);
-    return Promise.resolve(res);
-  },
-  (err) => {
-    console.log("🚨 Request failed:", err.config?.url, err.response?.status);
-    if (err.response?.status === 403) {
-      console.log("🚨 403 Forbidden - Check if Authorization header was sent");
-      console.log("🚨 Request headers:", err.config?.headers);
+// ✅ Request interceptor - adds Authorization header
+axiosService.interceptors.request.use(
+  async (config) => {
+    const accessToken = getAccessToken();
+    
+    if (accessToken) {
+      config.headers.Authorization = `Bearer ${accessToken}`;
     }
-    return Promise.reject(err);
+    
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
   }
 );
 
+// ✅ Response interceptor - handles errors
+axiosService.interceptors.response.use(
+  (response) => {
+    return Promise.resolve(response);
+  },
+  (error) => {
+    // Log 403 errors for debugging
+    if (error.response?.status === 403) {
+      console.error("403 Forbidden:", error.config?.url);
+      console.error("Check authentication token");
+    }
+    return Promise.reject(error);
+  }
+);
+
+// ✅ Token refresh logic
 const refreshAuthLogic = async (failedRequest) => {
   const refreshToken = getRefreshToken();
   
   if (!refreshToken) {
-    console.log("❌ No refresh token available");
+    console.error("No refresh token available");
+    localStorage.removeItem("auth");
+    window.location.href = "/login/";
     return Promise.reject("No refresh token available");
   }
 
-  return axios
-    .post("/api/auth/token/refresh/", {  // ✅ Fixed endpoint
-      refresh: refreshToken,
-    }, {
-      baseURL: import.meta.env.VITE_API_URL,
-      headers: {
-        "Content-Type": "application/json",
-      },
-    })
-    .then((resp) => {
-      const { access, refresh, user } = resp.data;
-      failedRequest.response.config.headers["Authorization"] = "Bearer " + access;
-      
-      // ✅ Store tokens in the same format as your current structure
-      const auth = JSON.parse(localStorage.getItem("auth"));
-      if (auth?.user?.tokens) {
-        auth.user.tokens.access = access;
-        auth.user.tokens.refresh = refresh;
-      } else {
-        // Fallback to root level
-        Object.assign(auth, { access, refresh, user });
+  try {
+    const response = await axios.post(
+      "/api/auth/token/refresh/",
+      { refresh: refreshToken },
+      {
+        baseURL: import.meta.env.VITE_API_URL,
+        headers: {
+          "Content-Type": "application/json",
+        },
       }
-      
-      localStorage.setItem("auth", JSON.stringify(auth));
-      console.log("✅ Tokens refreshed successfully");
-    })
-    .catch(() => {
-      console.log("❌ Token refresh failed, logging out user");
-      localStorage.removeItem("auth");
-      window.location.href = "/login/";
-    });
+    );
+
+    const { access } = response.data;
+    
+    // Update the failed request with new token
+    failedRequest.response.config.headers["Authorization"] = `Bearer ${access}`;
+    
+    // Update localStorage with new access token
+    const auth = JSON.parse(localStorage.getItem("auth"));
+    localStorage.setItem(
+      "auth",
+      JSON.stringify({
+        ...auth,
+        access: access,
+      })
+    );
+
+    return Promise.resolve();
+  } catch (error) {
+    console.error("Token refresh failed:", error);
+    localStorage.removeItem("auth");
+    window.location.href = "/login/";
+    return Promise.reject(error);
+  }
 };
 
+// Attach the refresh interceptor
 createAuthRefreshInterceptor(axiosService, refreshAuthLogic);
 
+// Fetcher function for SWR or other data fetching libraries
 export function fetcher(url) {
   return axiosService.get(url).then((res) => res.data);
 }
