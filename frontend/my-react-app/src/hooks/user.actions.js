@@ -1,14 +1,13 @@
-import axios from "axios";
+import axiosService from "../helpers/axios";  // ✅ Use configured axios
 import { useNavigate } from "react-router-dom";
 
 function useUserActions() {
   const navigate = useNavigate();
-  const baseURL = import.meta.env.VITE_API_URL;
 
   // ---------------- LOGIN ----------------
   const login = async (data) => {
     try {
-      const res = await axios.post(`${baseURL}/api/auth/login/`, data);
+      const res = await axiosService.post(`/api/auth/login/`, data);  // ✅ Changed
       setUserData(res.data);
       navigate("/");
       return res.data;
@@ -31,7 +30,7 @@ function useUserActions() {
 
       navigate("/verify-email-prompt/");
 
-      const res = await axios.post(`${baseURL}/api/auth/register/`, data);
+      const res = await axiosService.post(`/api/auth/register/`, data);  // ✅ Changed
 
       localStorage.setItem(
         "auth_temp",
@@ -60,8 +59,8 @@ function useUserActions() {
   // ---------------- RESEND VERIFICATION EMAIL ----------------
   const resendVerificationEmail = async (email) => {
     try {
-      const res = await axios.post(
-        `${baseURL}/api/auth/resend-verification-email/`,
+      const res = await axiosService.post(  // ✅ Changed
+        `/api/auth/resend-verification-email/`,
         { email }
       );
       return res.data;
@@ -74,8 +73,8 @@ function useUserActions() {
   // ---------------- FORGOT PASSWORD ----------------
   const forgotPassword = async (email) => {
     try {
-      const res = await axios.post(
-        `${baseURL}/api/auth/forgot-password/`,
+      const res = await axiosService.post(  // ✅ Changed
+        `/api/auth/forgot-password/`,
         { email }
       );
       return res.data;
@@ -88,8 +87,8 @@ function useUserActions() {
   // ---------------- RESET PASSWORD ----------------
   const resetPassword = async (uid, token, password) => {
     try {
-      const res = await axios.post(
-        `${baseURL}/api/auth/reset-password/`,
+      const res = await axiosService.post(  // ✅ Changed
+        `/api/auth/reset-password/`,
         { uid, token, password }
       );
       return res.data;
@@ -113,21 +112,9 @@ function useUserActions() {
   // ---------------- UPDATE USER ----------------
   const updateUser = async (userId, data) => {
     try {
-      const accessToken = getAccessToken();
-      
-      if (!accessToken) {
-        throw new Error("No access token found");
-      }
-
-      const res = await axios.patch(
-        `${baseURL}/api/auth/user/${userId}/`,
-        data,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-          },
-        }
+      const res = await axiosService.patch(  // ✅ Changed - auth header automatic
+        `/api/auth/user/${userId}/`,
+        data
       );
 
       const auth = JSON.parse(localStorage.getItem("auth")) || {};
@@ -155,7 +142,7 @@ function useUserActions() {
         throw new Error("No refresh token found");
       }
 
-      const res = await axios.post(`${baseURL}/api/auth/token/refresh/`, {
+      const res = await axiosService.post(`/api/auth/token/refresh/`, {  // ✅ Changed
         refresh: refreshToken,
       });
 

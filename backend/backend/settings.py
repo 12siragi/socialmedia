@@ -31,6 +31,7 @@ ALLOWED_HOSTS = [
     ".onrender.com",
     "localhost",
     "127.0.0.1",
+    'jamal-interrogational-mariah.ngrok-free.dev',
 ]
 
 # ---------------------------

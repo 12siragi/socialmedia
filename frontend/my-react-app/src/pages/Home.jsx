@@ -30,7 +30,9 @@ function Home() {
       setLoading(true);
       setError(null);
       const res = await axiosService.get("/api/post/posts/");
-      setPosts(res.data);
+      // ✅ Handle both paginated and non-paginated responses
+      const postsData = Array.isArray(res.data) ? res.data : res.data.results || [];
+      setPosts(postsData);
     } catch (err) {
       console.error("Failed to fetch posts:", err);
       setError("Failed to load posts");
@@ -43,7 +45,9 @@ function Home() {
   const refreshPosts = async () => {
     try {
       const res = await axiosService.get("/api/post/posts/");
-      setPosts(res.data);
+      // ✅ Handle both paginated and non-paginated responses
+      const postsData = Array.isArray(res.data) ? res.data : res.data.results || [];
+      setPosts(postsData);
     } catch (err) {
       console.error("Failed to refresh posts:", err);
     }
@@ -54,8 +58,10 @@ function Home() {
     fetchPosts();
   }, []);
 
-  // Calculate user's post count from fetched posts
-  const userPostsCount = posts.filter(post => post.author?.id === user?.id).length;
+  // ✅ Calculate user's post count with safety check
+  const userPostsCount = Array.isArray(posts) 
+    ? posts.filter(post => post.author?.id === user?.id).length 
+    : 0;
 
   if (!user) {
     return (
@@ -211,20 +217,20 @@ function Home() {
                   <span className="visually-hidden">Loading...</span>
                 </div>
               </div>
-            ) : profiles.results.length === 0 ? (
+            ) : profiles.results && profiles.results.length === 0 ? (
               <p className="text-center home-no-suggestions">
                 No suggestions available
               </p>
             ) : (
               <div className="d-flex flex-column gap-3">
-                {profiles.results.slice(0, 5).map((profile) => (
+                {profiles.results && profiles.results.slice(0, 5).map((profile) => (
                   <ProfileCard key={profile.id} user={profile} />
                 ))}
               </div>
             )}
 
             {/* See All Link */}
-            {profiles && profiles.results.length > 5 && (
+            {profiles && profiles.results && profiles.results.length > 5 && (
               <div className="text-center mt-3">
                 <a href="/explore" className="home-see-all-link">
                   See all suggestions
