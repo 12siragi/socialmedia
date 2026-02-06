@@ -94,7 +94,6 @@ function LoginForm() {
           </a>
         </div>
 
-        {/* Error Message */}
         {error && (
           <div className="alert alert-danger login-error-alert mb-3">
             {error}

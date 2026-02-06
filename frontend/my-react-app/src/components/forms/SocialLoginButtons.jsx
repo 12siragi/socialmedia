@@ -8,7 +8,6 @@ function SocialLoginButtons() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Fetch available providers from backend
     userActions
       .getSocialProviders()
       .then((data) => {

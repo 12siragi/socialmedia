@@ -27,7 +27,7 @@ function App() {
       <Route path="/email-verify-failed" element={<VerifyEmail />} />
       <Route path="/email-verified-success/" element={<EmailVerifiedSuccess />} />
 
-             {/* ✅ NEW: Social auth success callback route */}
+      {/* ✅ NEW: Social auth success callback route */}
       <Route path="/social-login-success" element={<SocialLoginSuccess />} />
 
       {/* Password reset routes */}

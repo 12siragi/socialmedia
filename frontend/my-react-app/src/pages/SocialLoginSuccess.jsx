@@ -10,7 +10,6 @@ function SocialLoginSuccess() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    // Extract tokens and user info from URL
     const access = searchParams.get("access");
     const refresh = searchParams.get("refresh");
     const email = searchParams.get("email");
