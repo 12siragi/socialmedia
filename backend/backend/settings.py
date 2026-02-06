@@ -20,7 +20,7 @@ SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", 'django-insecure-v4s^@fluo*)a8u
 # ---------------------------
 # DEBUG MODE
 # ---------------------------
-DEBUG = False # Always False in production
+DEBUG = False  # Always False in production
 
 # ---------------------------
 # ALLOWED HOSTS
@@ -44,12 +44,19 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'accounts',
+    
+    # Third-party apps
     'corsheaders',
     'rest_framework',
     'rest_framework_simplejwt.token_blacklist',
-    'post',
     'django_extensions',
+    
+    # ✅ Social Auth
+    'social_django',
+    
+    # Your apps
+    'accounts',
+    'post',
     'comment',
 ]
 
@@ -67,6 +74,9 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                # ✅ Social Auth context processors
+                'social_django.context_processors.backends',
+                'social_django.context_processors.login_redirect',
             ],
         },
     },
@@ -139,7 +149,7 @@ USE_TZ = True
 # STATIC FILES
 # ---------------------------
 STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATIC_ROOT = BASE_DIR / 'static'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # ---------------------------
@@ -208,6 +218,9 @@ SIMPLE_JWT = {
     "SLIDING_TOKEN_REFRESH_SERIALIZER": "rest_framework_simplejwt.serializers.TokenRefreshSlidingSerializer",
 }
 
+# ---------------------------
+# REDIS CACHE
+# ---------------------------
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
@@ -222,13 +235,108 @@ SESSION_ENGINE = "django.contrib.sessions.backends.cache"
 SESSION_CACHE_ALIAS = "default"
 
 # ---------------------------
+# AUTHENTICATION BACKENDS
+# ---------------------------
+AUTHENTICATION_BACKENDS = (
+    # ✅ Social Auth Backends
+    'social_core.backends.google.GoogleOAuth2',
+    'social_core.backends.github.GithubOAuth2',
+    'social_core.backends.facebook.FacebookOAuth2',  # Optional
+    
+    # Default Django backend (email/password)
+    'django.contrib.auth.backends.ModelBackend',
+)
+
+# ---------------------------
+# PYTHON SOCIAL AUTH SETTINGS
+# ---------------------------
+
+# OAuth Keys (from .env)
+SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = os.environ.get('GOOGLE_OAUTH_CLIENT_ID')
+SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = os.environ.get('GOOGLE_OAUTH_CLIENT_SECRET')
+
+SOCIAL_AUTH_GITHUB_KEY = os.environ.get('GITHUB_OAUTH_CLIENT_ID')
+SOCIAL_AUTH_GITHUB_SECRET = os.environ.get('GITHUB_OAUTH_CLIENT_SECRET')
+
+SOCIAL_AUTH_FACEBOOK_KEY = os.environ.get('FACEBOOK_OAUTH_CLIENT_ID')
+SOCIAL_AUTH_FACEBOOK_SECRET = os.environ.get('FACEBOOK_OAUTH_CLIENT_SECRET')
+
+# Pipeline - Define how user is created/updated
+SOCIAL_AUTH_PIPELINE = (
+    'social_core.pipeline.social_auth.social_details',
+    'social_core.pipeline.social_auth.social_uid',
+    'social_core.pipeline.social_auth.auth_allowed',
+    'social_core.pipeline.social_auth.social_user',
+    'social_core.pipeline.user.get_username',
+    
+    # ✅ Custom pipeline to link to existing email
+    'accounts.pipeline.associate_by_email',
+    
+    'social_core.pipeline.user.create_user',
+    
+    # ✅ Custom pipeline to mark email as verified
+    'accounts.pipeline.mark_email_verified',
+    
+    'social_core.pipeline.social_auth.associate_user',
+    'social_core.pipeline.social_auth.load_extra_data',
+    'social_core.pipeline.user.user_details',
+)
+
+# What data to get from providers
+SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = [
+    'https://www.googleapis.com/auth/userinfo.email',
+    'https://www.googleapis.com/auth/userinfo.profile',
+]
+
+SOCIAL_AUTH_GITHUB_SCOPE = ['user:email']
+
+SOCIAL_AUTH_FACEBOOK_SCOPE = ['email']
+SOCIAL_AUTH_FACEBOOK_PROFILE_EXTRA_PARAMS = {
+    'fields': 'id,name,email,picture'
+}
+
+# Field mapping - maps social provider fields to your CustomUser model
+SOCIAL_AUTH_GOOGLE_OAUTH2_FIELD_SELECTORS = ['email', 'name']
+SOCIAL_AUTH_USER_FIELDS = ['email', 'first_name', 'last_name']
+
+# Auto-set email verified for social logins (handled in pipeline)
+SOCIAL_AUTH_CLEAN_USERNAMES = True
+
+# Where to store associations
+SOCIAL_AUTH_POSTGRES_JSONFIELD = True
+
+# Security
+SOCIAL_AUTH_REDIRECT_IS_HTTPS = not DEBUG  # True in production
+SOCIAL_AUTH_SANITIZE_REDIRECTS = True
+
+# Login/Logout redirects (handled by custom view)
+SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/api/auth/social/success/'
+SOCIAL_AUTH_LOGIN_ERROR_URL = '/api/auth/social/error/'
+SOCIAL_AUTH_NEW_USER_REDIRECT_URL = '/api/auth/social/success/'
+SOCIAL_AUTH_NEW_ASSOCIATION_REDIRECT_URL = '/api/auth/social/success/'
+
+# Disconnect settings
+SOCIAL_AUTH_DISCONNECT_REDIRECT_URL = '/api/auth/social/disconnected/'
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://pingchart.vercel.app",
+    "https://socialmedia-6.onrender.com",
+    "https://*.ngrok-free.dev",
+    "http://localhost:5173",
+    "http://localhost:8080",  # Add this line
+]
+
+# ---------------------------
 # CORS
 # ---------------------------
 CORS_ALLOW_ALL_ORIGINS = True  # Optional: you can lock to your frontend domain
 # CORS_ALLOWED_ORIGINS = [
-#     "https://your-frontend-url.com",
+#     "https://pingchart.vercel.app",
 #     "http://localhost:3000"
+#     "jamal-interrogational-mariah.ngrok-free.dev",
 # ]
+
+CORS_ALLOW_CREDENTIALS = True  # ✅ Important for social auth cookies
 
 # ---------------------------
 # DEFAULT AUTO FIELD
@@ -240,6 +348,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # ---------------------------
 DEFAULT_AVATAR_URL = "https://avatars.dicebear.com/api/identicon/.svg"
 
+# ---------------------------
+# EMAIL SETTINGS
+# ---------------------------
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = os.environ.get("EMAIL_HOST")
 EMAIL_PORT = int(os.environ.get("EMAIL_PORT", 587))
@@ -248,5 +359,8 @@ EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD")
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL")
 
+# ---------------------------
+# URL SETTINGS
+# ---------------------------
 FRONTEND_URL = os.environ.get("FRONTEND_URL")
 BACKEND_URL = os.environ.get("BACKEND_URL")

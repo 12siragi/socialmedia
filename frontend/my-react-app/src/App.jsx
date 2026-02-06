@@ -13,6 +13,7 @@ import EmailVerifiedSuccess from "./pages/EmailVerifiedSuccess";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import ResetPasswordFailed from "./pages/ResetPasswordFailed";
+import SocialLoginSuccess from "./pages/SocialLoginSuccess";
 
 function App() {
   return (
@@ -25,6 +26,9 @@ function App() {
       <Route path="/verify-email-prompt/" element={<CheckEmail />} />
       <Route path="/email-verify-failed" element={<VerifyEmail />} />
       <Route path="/email-verified-success/" element={<EmailVerifiedSuccess />} />
+
+             {/* ✅ NEW: Social auth success callback route */}
+      <Route path="/social-login-success" element={<SocialLoginSuccess />} />
 
       {/* Password reset routes */}
       <Route path="/forgot-password/" element={<ForgotPassword />} />

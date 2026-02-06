@@ -1,4 +1,4 @@
-import axiosService from "../helpers/axios";  // ✅ Use configured axios
+import axiosService from "../components/helpers/axios";
 import { useNavigate } from "react-router-dom";
 
 function useUserActions() {
@@ -7,12 +7,77 @@ function useUserActions() {
   // ---------------- LOGIN ----------------
   const login = async (data) => {
     try {
-      const res = await axiosService.post(`/api/auth/login/`, data);  // ✅ Changed
+      const res = await axiosService.post(`/api/auth/login/`, data);
       setUserData(res.data);
       navigate("/");
       return res.data;
     } catch (error) {
       console.error("Login error:", error);
+      throw error;
+    }
+  };
+
+  // ---------------- SOCIAL LOGIN ----------------
+  const initiateSocialLogin = (provider) => {
+    // Redirect to backend OAuth endpoint
+    // Backend will handle OAuth flow and redirect back to success page
+    const backendUrl = import.meta.env.VITE_API_URL;
+    window.location.href = `${backendUrl}/api/auth/social/login/${provider}/`;
+  };
+
+  // ---------------- HANDLE SOCIAL LOGIN SUCCESS ----------------
+  const handleSocialLoginSuccess = (access, refresh, email, firstName, lastName) => {
+    try {
+      // Store tokens and user data
+      const userData = {
+        access,
+        refresh,
+        user: {
+          email,
+          first_name: firstName,
+          last_name: lastName,
+        },
+      };
+      
+      setUserData(userData);
+      return userData;
+    } catch (error) {
+      console.error("Social login success handler error:", error);
+      throw error;
+    }
+  };
+
+  // ---------------- GET SOCIAL PROVIDERS ----------------
+  const getSocialProviders = async () => {
+    try {
+      const res = await axiosService.get(`/api/auth/social/providers/`);
+      return res.data;
+    } catch (error) {
+      console.error("Get social providers error:", error);
+      throw error;
+    }
+  };
+
+  // ---------------- GET CONNECTED SOCIAL ACCOUNTS ----------------
+  const getConnectedAccounts = async () => {
+    try {
+      const res = await axiosService.get(`/api/auth/social/accounts/`);
+      return res.data;
+    } catch (error) {
+      console.error("Get connected accounts error:", error);
+      throw error;
+    }
+  };
+
+  // ---------------- DISCONNECT SOCIAL ACCOUNT ----------------
+  const disconnectSocialAccount = async (provider) => {
+    try {
+      const res = await axiosService.delete(`/api/auth/social/accounts/`, {
+        data: { provider },
+      });
+      return res.data;
+    } catch (error) {
+      console.error("Disconnect social account error:", error);
       throw error;
     }
   };
@@ -30,7 +95,7 @@ function useUserActions() {
 
       navigate("/verify-email-prompt/");
 
-      const res = await axiosService.post(`/api/auth/register/`, data);  // ✅ Changed
+      const res = await axiosService.post(`/api/auth/register/`, data);
 
       localStorage.setItem(
         "auth_temp",
@@ -59,7 +124,7 @@ function useUserActions() {
   // ---------------- RESEND VERIFICATION EMAIL ----------------
   const resendVerificationEmail = async (email) => {
     try {
-      const res = await axiosService.post(  // ✅ Changed
+      const res = await axiosService.post(
         `/api/auth/resend-verification-email/`,
         { email }
       );
@@ -73,7 +138,7 @@ function useUserActions() {
   // ---------------- FORGOT PASSWORD ----------------
   const forgotPassword = async (email) => {
     try {
-      const res = await axiosService.post(  // ✅ Changed
+      const res = await axiosService.post(
         `/api/auth/forgot-password/`,
         { email }
       );
@@ -87,7 +152,7 @@ function useUserActions() {
   // ---------------- RESET PASSWORD ----------------
   const resetPassword = async (uid, token, password) => {
     try {
-      const res = await axiosService.post(  // ✅ Changed
+      const res = await axiosService.post(
         `/api/auth/reset-password/`,
         { uid, token, password }
       );
@@ -112,7 +177,7 @@ function useUserActions() {
   // ---------------- UPDATE USER ----------------
   const updateUser = async (userId, data) => {
     try {
-      const res = await axiosService.patch(  // ✅ Changed - auth header automatic
+      const res = await axiosService.patch(
         `/api/auth/user/${userId}/`,
         data
       );
@@ -142,7 +207,7 @@ function useUserActions() {
         throw new Error("No refresh token found");
       }
 
-      const res = await axiosService.post(`/api/auth/token/refresh/`, {  // ✅ Changed
+      const res = await axiosService.post(`/api/auth/token/refresh/`, {
         refresh: refreshToken,
       });
 
@@ -226,8 +291,8 @@ function useUserActions() {
     login,
     register,
     resendVerificationEmail,
-    forgotPassword,        // ✅ Added
-    resetPassword,         // ✅ Added
+    forgotPassword,
+    resetPassword,
     logout,
     updateUser,
     refreshAccessToken,
@@ -236,6 +301,12 @@ function useUserActions() {
     getRefreshToken,
     isAuthenticated,
     clearTempAuth,
+    // ✅ New social auth functions
+    initiateSocialLogin,
+    handleSocialLoginSuccess,
+    getSocialProviders,
+    getConnectedAccounts,
+    disconnectSocialAccount,
   };
 }
 

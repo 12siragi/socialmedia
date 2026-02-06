@@ -21,8 +21,9 @@ function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Fetch 5 suggested profiles
-  const { data: profiles } = useSWR("/api/auth/user/?page=1", fetcher);
+  // Fetch 5 suggested profiles - ✅ Fixed to handle paginated response
+  const { data: profilesData } = useSWR("/api/auth/user/?page=1", fetcher);
+  const profiles = profilesData?.results || [];
 
   // Fetch posts
   const fetchPosts = async () => {
@@ -30,8 +31,8 @@ function Home() {
       setLoading(true);
       setError(null);
       const res = await axiosService.get("/api/post/posts/");
-      // ✅ Handle both paginated and non-paginated responses
-      const postsData = Array.isArray(res.data) ? res.data : res.data.results || [];
+      // ✅ Handle paginated response properly
+      const postsData = res.data.results || res.data || [];
       setPosts(postsData);
     } catch (err) {
       console.error("Failed to fetch posts:", err);
@@ -45,8 +46,8 @@ function Home() {
   const refreshPosts = async () => {
     try {
       const res = await axiosService.get("/api/post/posts/");
-      // ✅ Handle both paginated and non-paginated responses
-      const postsData = Array.isArray(res.data) ? res.data : res.data.results || [];
+      // ✅ Handle paginated response properly
+      const postsData = res.data.results || res.data || [];
       setPosts(postsData);
     } catch (err) {
       console.error("Failed to refresh posts:", err);
@@ -58,10 +59,8 @@ function Home() {
     fetchPosts();
   }, []);
 
-  // ✅ Calculate user's post count with safety check
-  const userPostsCount = Array.isArray(posts) 
-    ? posts.filter(post => post.author?.id === user?.id).length 
-    : 0;
+  // ✅ Calculate user's post count safely - renamed to avoid conflicts
+  const userPostsCount = posts.filter((post) => post.author?.id === user?.id).length;
 
   if (!user) {
     return (
@@ -211,26 +210,26 @@ function Home() {
             </h5>
 
             {/* Loading state for profiles */}
-            {!profiles ? (
+            {!profilesData ? (
               <div className="text-center py-3">
                 <div className="spinner-border spinner-border-sm home-suggestions-spinner" role="status">
                   <span className="visually-hidden">Loading...</span>
                 </div>
               </div>
-            ) : profiles.results && profiles.results.length === 0 ? (
+            ) : profiles.length === 0 ? (
               <p className="text-center home-no-suggestions">
                 No suggestions available
               </p>
             ) : (
               <div className="d-flex flex-column gap-3">
-                {profiles.results && profiles.results.slice(0, 5).map((profile) => (
+                {profiles.slice(0, 5).map((profile) => (
                   <ProfileCard key={profile.id} user={profile} />
                 ))}
               </div>
             )}
 
             {/* See All Link */}
-            {profiles && profiles.results && profiles.results.length > 5 && (
+            {profiles.length > 5 && (
               <div className="text-center mt-3">
                 <a href="/explore" className="home-see-all-link">
                   See all suggestions
@@ -259,4 +258,4 @@ function Home() {
   );
 }
 
-export default Home;
+export default Home;y

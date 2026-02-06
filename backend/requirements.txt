@@ -21,3 +21,4 @@ sqlparse==0.5.3
 typing_extensions==4.15.0
 whitenoise==6.11.0
 django-redis==5.4.0
+social-auth-app-django
