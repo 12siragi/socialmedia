@@ -14,6 +14,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import ResetPasswordFailed from "./pages/ResetPasswordFailed";
 import SocialLoginSuccess from "./pages/SocialLoginSuccess";
+import SocialAuthCallback from "./pages/SocialAuthCallback";
 
 function App() {
   return (
@@ -29,6 +30,7 @@ function App() {
 
       {/* ✅ NEW: Social auth success callback route */}
       <Route path="/social-login-success" element={<SocialLoginSuccess />} />
+      <Route path="/social-auth-callback" element={<SocialAuthCallback />} />
 
       {/* Password reset routes */}
       <Route path="/forgot-password/" element={<ForgotPassword />} />
