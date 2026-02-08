@@ -1,12 +1,15 @@
-import React from "react";
+// components/ProtectedRoute.jsx
+
+import React, { memo } from "react";
 import { Navigate } from "react-router-dom";
-import useUserActions from "../hooks/user.actions"; // ✅ Default import (no curly braces)
+import { useAuth } from "../components/contexts/AuthContext";
+
 
 function ProtectedRoute({ children }) {
-  const userActions = useUserActions(); // ✅ Use the hook
-  const user = userActions.getUser();   // ✅ Get user from hook
+  const { isAuthenticated } = useAuth();
   
-  return user ? <>{children}</> : <Navigate to="/login/" />;
+  return isAuthenticated ? <>{children}</> : <Navigate to="/login/" />;
 }
 
-export default ProtectedRoute;
+// ✅ Prevent re-renders when parent updates
+export default memo(ProtectedRoute);

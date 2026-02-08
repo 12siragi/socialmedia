@@ -1,4 +1,4 @@
-# accounts/views.py - SIMPLIFIED VERSION
+# accounts/views.py - WITH REDIS CACHING
 
 from rest_framework import generics, status, viewsets
 from rest_framework.views import APIView
@@ -12,26 +12,91 @@ from django.utils.http import urlsafe_base64_decode
 from django.shortcuts import redirect
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 import logging
 
 from .models import CustomUser
 from .serializers import CustomUserSerializer, UserRegistrationSerializer, UserLoginSerializer
 from .permissions import IsOwnerOrReadOnly
 
-# ✅ Import updated services with Redis rate limiting
+from .tasks import send_verification_email_task, send_password_reset_email_task
+
+# Import updated services with Redis rate limiting
 from .services.email_service import (
-    send_verification_email,
-    clear_verification_rate_limit
+    clear_verification_rate_limit,
+    check_verification_rate_limit
 )
 from .services.tokens import account_activation_token
 from .services.password_service import (
     generate_reset_token,
     reset_user_password,
-    send_password_reset_email
+    check_password_reset_rate_limit
 )
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
+
+# Cache timeout constants (in seconds)
+USER_CACHE_TIMEOUT = 300  # 5 minutes
+USER_LIST_CACHE_TIMEOUT = 60  # 1 minute
+
+
+# ----------------------------
+# Cache Helper Functions
+# ----------------------------
+def get_user_cache_key(user_id):
+    """Generate cache key for user object"""
+    return f"user_obj:{user_id}"
+
+
+def get_user_by_email_cache_key(email):
+    """Generate cache key for email lookup"""
+    return f"user_email:{email}"
+
+
+def get_cached_user(user_id):
+    """Get user from cache or DB"""
+    cache_key = get_user_cache_key(user_id)
+    user = cache.get(cache_key)
+    
+    if user is None:
+        try:
+            user = User.objects.get(pk=user_id)
+            cache.set(cache_key, user, USER_CACHE_TIMEOUT)
+            logger.debug(f"User {user_id} cached")
+        except User.DoesNotExist:
+            return None
+    else:
+        logger.debug(f"User {user_id} retrieved from cache")
+    
+    return user
+
+
+def get_cached_user_by_email(email):
+    """Get user by email from cache or DB"""
+    cache_key = get_user_by_email_cache_key(email)
+    user = cache.get(cache_key)
+    
+    if user is None:
+        try:
+            user = User.objects.get(email=email)
+            # Cache both email lookup and user object
+            cache.set(cache_key, user, USER_CACHE_TIMEOUT)
+            cache.set(get_user_cache_key(user.id), user, USER_CACHE_TIMEOUT)
+            logger.debug(f"User {email} cached")
+        except User.DoesNotExist:
+            return None
+    else:
+        logger.debug(f"User {email} retrieved from cache")
+    
+    return user
+
+
+def invalidate_user_cache(user):
+    """Invalidate all cache entries for a user"""
+    cache.delete(get_user_cache_key(user.id))
+    cache.delete(get_user_by_email_cache_key(user.email))
+    logger.debug(f"Cache invalidated for user {user.id}")
 
 
 # ----------------------------
@@ -40,28 +105,26 @@ logger = logging.getLogger(__name__)
 class UserRegistrationAPIView(generics.GenericAPIView):
     permission_classes = (AllowAny,)
     serializer_class = UserRegistrationSerializer
-
+    
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
-        # Create user (active, but not verified)
         user = serializer.save(is_email_verified=False)
 
-        # ✅ SIMPLIFIED: Redis rate limiting is inside the function now!
-        success, message = send_verification_email(user)
-        
-        if not success:
-            logger.warning(f"Failed to send verification email: {message}")
+        # Cache the new user
+        cache.set(get_user_cache_key(user.id), user, USER_CACHE_TIMEOUT)
+        cache.set(get_user_by_email_cache_key(user.email), user, USER_CACHE_TIMEOUT)
 
-        # Generate tokens
+        # Queue email task (non-blocking!)
+        send_verification_email_task.delay(user.id)
+
         token = RefreshToken.for_user(user)
         data = CustomUserSerializer(user, context={"request": request}).data
         data["tokens"] = {
             "refresh": str(token),
             "access": str(token.access_token)
         }
-        data["message"] = "User registered. Please check your email to verify your account."
+        data["message"] = "User registered. Verification email sent."
         
         return Response(data, status=status.HTTP_201_CREATED)
 
@@ -78,6 +141,10 @@ class UserLoginAPIView(generics.GenericAPIView):
         serializer.is_valid(raise_exception=True)
 
         user = serializer.validated_data
+
+        # Cache the user on successful login
+        cache.set(get_user_cache_key(user.id), user, USER_CACHE_TIMEOUT)
+        cache.set(get_user_by_email_cache_key(user.email), user, USER_CACHE_TIMEOUT)
 
         if not user.is_email_verified:
             return Response(
@@ -109,8 +176,13 @@ class VerifyEmailAPIView(APIView):
 
         try:
             uid = urlsafe_base64_decode(uidb64).decode()
-            user = User.objects.get(pk=uid)
-        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            
+            # Try cache first
+            user = get_cached_user(uid)
+            if user is None:
+                return redirect(f"{settings.FRONTEND_URL}/email-verify-failed")
+                
+        except (TypeError, ValueError, OverflowError):
             return redirect(f"{settings.FRONTEND_URL}/email-verify-failed")
 
         if account_activation_token.check_token(user, token):
@@ -118,7 +190,10 @@ class VerifyEmailAPIView(APIView):
                 user.is_email_verified = True
                 user.save()
                 
-                # ✅ SIMPLIFIED: Clear rate limit after successful verification
+                # Invalidate cache since user was updated
+                invalidate_user_cache(user)
+                
+                # Clear rate limit after successful verification
                 clear_verification_rate_limit(user)
                 
             return redirect(f"{settings.FRONTEND_URL}/email-verified-success")
@@ -131,7 +206,7 @@ class VerifyEmailAPIView(APIView):
 # ----------------------------
 class ResendVerificationEmailAPIView(APIView):
     permission_classes = [AllowAny]
-
+    
     def post(self, request):
         email = request.data.get("email")
         if not email:
@@ -140,37 +215,37 @@ class ResendVerificationEmailAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        try:
-            user = User.objects.get(email=email)
-            
-            if user.is_email_verified:
-                return Response(
-                    {"detail": "Email is already verified."}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            # ✅ SIMPLIFIED: All Redis logic is in the service function!
-            # No more manual cache.get() / cache.set() in the view
-            success, message = send_verification_email(user)
-            
-            if success:
-                return Response(
-                    {"detail": message}, 
-                    status=status.HTTP_200_OK
-                )
-            else:
-                # Extract wait time from message if rate limited
-                # Message format: "Please wait X seconds..."
-                return Response(
-                    {"detail": message}, 
-                    status=status.HTTP_429_TOO_MANY_REQUESTS
-                )
-            
-        except User.DoesNotExist:
+        # Use cached user lookup
+        user = get_cached_user_by_email(email)
+        
+        if user is None:
             return Response(
                 {"detail": "User with this email does not exist."}, 
                 status=status.HTTP_404_NOT_FOUND
             )
+        
+        if user.is_email_verified:
+            return Response(
+                {"detail": "Email is already verified."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Check rate limit SYNCHRONOUSLY
+        allowed, wait_time = check_verification_rate_limit(user)
+        
+        if not allowed:
+            return Response(
+                {"detail": f"Please wait {wait_time} seconds before requesting another email."}, 
+                status=status.HTTP_429_TOO_MANY_REQUESTS
+            )
+        
+        # Queue email task (non-blocking!)
+        send_verification_email_task.delay(user.id)
+        
+        return Response(
+            {"detail": "Verification email sent successfully."}, 
+            status=status.HTTP_200_OK
+        )
 
 
 # ----------------------------
@@ -200,7 +275,21 @@ class UserInfoAPIView(RetrieveAPIView):
     serializer_class = CustomUserSerializer
 
     def get_object(self):
-        return self.request.user
+        # Cache the current user's info
+        user = self.request.user
+        cache_key = get_user_cache_key(user.id)
+        cached_user = cache.get(cache_key)
+        
+        if cached_user is None:
+            # Refresh from DB
+            user.refresh_from_db()
+            cache.set(cache_key, user, USER_CACHE_TIMEOUT)
+            logger.debug(f"User {user.id} info cached")
+        else:
+            user = cached_user
+            logger.debug(f"User {user.id} info from cache")
+        
+        return user
 
 
 # ----------------------------
@@ -216,22 +305,51 @@ class UserViewSet(viewsets.ModelViewSet):
     pagination_class = SmallPagination
 
     def get_queryset(self):
+        # Cache user lists for a shorter period
+        cache_key = f"user_list:exclude_{self.request.user.id}"
+        
         if self.action == "list":
-            return CustomUser.objects.exclude(id=self.request.user.id)
+            cached_queryset = cache.get(cache_key)
+            
+            if cached_queryset is None:
+                queryset = CustomUser.objects.exclude(id=self.request.user.id)
+                # Convert to list to cache (querysets can't be pickled)
+                user_list = list(queryset)
+                cache.set(cache_key, user_list, USER_LIST_CACHE_TIMEOUT)
+                logger.debug("User list cached")
+                return queryset
+            else:
+                logger.debug("User list from cache")
+                # Return the cached list as is (pagination will handle it)
+                return cached_queryset
+        
         return CustomUser.objects.all()
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context["request"] = self.request
         return context
-
     
+    def perform_update(self, serializer):
+        """Invalidate cache when user is updated"""
+        user = serializer.save()
+        invalidate_user_cache(user)
+        # Invalidate user list cache
+        cache.delete_pattern("user_list:*")
+    
+    def perform_destroy(self, instance):
+        """Invalidate cache when user is deleted"""
+        invalidate_user_cache(instance)
+        cache.delete_pattern("user_list:*")
+        instance.delete()
+
+
 # ----------------------------
 # Forgot Password
 # ----------------------------
 class ForgotPasswordAPIView(APIView):
     permission_classes = [AllowAny]
-
+    
     def post(self, request):
         email = request.data.get("email")
 
@@ -241,23 +359,23 @@ class ForgotPasswordAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # ✅ SIMPLIFIED: Generate token and send email with rate limiting
+        # Check rate limit first
+        allowed, wait_time = check_password_reset_rate_limit(email)
+        if not allowed:
+            return Response(
+                {"detail": f"Please wait {wait_time} seconds before requesting another reset."},
+                status=status.HTTP_429_TOO_MANY_REQUESTS
+            )
+
         uid, token = generate_reset_token(email)
         
         if uid and token:
             reset_url = f"{settings.BACKEND_URL}/api/auth/password-reset-confirm/?uid={uid}&token={token}"
             
-            # ✅ Redis rate limiting happens inside this function!
-            success, message = send_password_reset_email(email, reset_url)
-            
-            if not success:
-                # Rate limited
-                return Response(
-                    {"detail": message},
-                    status=status.HTTP_429_TOO_MANY_REQUESTS
-                )
+            # Queue email task (non-blocking!)
+            send_password_reset_email_task.delay(email, reset_url)
         
-        # Always return generic message (security)
+        # Don't reveal whether email exists (security best practice)
         return Response(
             {"detail": "If the email exists, a reset link has been sent."},
             status=status.HTTP_200_OK
@@ -281,18 +399,22 @@ class ResetPasswordAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # ✅ No Redis here - just validates and updates password
+        # Validates and updates password
         success, message = reset_user_password(uid, token, password)
 
-        if not success:
-            return Response(
-                {"detail": message},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        if success:
+            # Invalidate user cache since password changed
+            try:
+                user_pk = force_str(urlsafe_base64_decode(uid))
+                user = get_cached_user(user_pk)
+                if user:
+                    invalidate_user_cache(user)
+            except Exception as e:
+                logger.error(f"Failed to invalidate cache after password reset: {e}")
 
         return Response(
             {"detail": message},
-            status=status.HTTP_200_OK
+            status=status.HTTP_200_OK if success else status.HTTP_400_BAD_REQUEST
         )
 
 
@@ -306,8 +428,6 @@ class PasswordResetConfirmAPIView(APIView):
     2. Backend validates token
     3. If valid → redirects to frontend with uid & token
     4. If invalid → redirects to error page
-    
-    ✅ No Redis here - just validates tokens
     """
     permission_classes = [AllowAny]
 
@@ -326,7 +446,12 @@ class PasswordResetConfirmAPIView(APIView):
             
             # Decode and validate
             user_pk = force_str(urlsafe_base64_decode(uid))
-            user = User.objects.get(pk=user_pk)
+            
+            # Try cached user first
+            user = get_cached_user(user_pk)
+            if user is None:
+                logger.warning(f"❌ User not found: {user_pk}")
+                return redirect(f"{settings.FRONTEND_URL}/reset-password-failed/")
             
             if token_generator.check_token(user, token):
                 logger.info(f"✅ Valid token for user: {user.email}")
@@ -335,6 +460,6 @@ class PasswordResetConfirmAPIView(APIView):
                 logger.warning(f"❌ Invalid/expired token for user: {user.email}")
                 return redirect(f"{settings.FRONTEND_URL}/reset-password-failed/")
                 
-        except (TypeError, ValueError, OverflowError, User.DoesNotExist) as e:
+        except (TypeError, ValueError, OverflowError) as e:
             logger.error(f"❌ Validation error: {str(e)}")
             return redirect(f"{settings.FRONTEND_URL}/reset-password-failed/")

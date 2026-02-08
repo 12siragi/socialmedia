@@ -88,6 +88,7 @@ TEMPLATES = [
 # ---------------------------
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'django.middleware.gzip.GZipMiddleware',  
     'whitenoise.middleware.WhiteNoiseMiddleware',  # Serve static files
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -115,6 +116,10 @@ DATABASES = {
         "PASSWORD": os.environ.get("DB_PASSWORD"),
         "HOST": os.environ.get("DB_HOST"),
         "PORT": os.environ.get("DB_PORT"),
+        "CONN_MAX_AGE": 600,  # ✅ Reuse connections for 10 minutes
+        "OPTIONS": {
+            "connect_timeout": 10,
+        }   
     }
 }
 
@@ -364,3 +369,18 @@ DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL")
 # ---------------------------
 FRONTEND_URL = os.environ.get("FRONTEND_URL")
 BACKEND_URL = os.environ.get("BACKEND_URL")
+
+
+# backend/settings.py (ADD TO END OF FILE)
+
+# ---------------------------
+# CELERY SETTINGS
+# ---------------------------
+CELERY_BROKER_URL = 'redis://redis:6379/0'  # Same Redis container
+CELERY_RESULT_BACKEND = 'redis://redis:6379/0'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'Africa/Nairobi'
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes max

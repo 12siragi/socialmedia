@@ -10,8 +10,27 @@ services:
     networks:
       - socialmedia-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
-  # 2. Django backend
+  # 2. Postgres database
+  postgres:
+    image: postgres:15
+    container_name: socialmedia-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - socialmedia-network
+    restart: unless-stopped
+
+  # 3. Django backend
   socialmedia-backend:
     build:
       context: .
@@ -32,21 +51,43 @@ services:
     networks:
       - socialmedia-network
 
-  # 3. Postgres database
-  postgres:
-    image: postgres:15
-    container_name: socialmedia-postgres
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  # 4. Celery worker
+  celery:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: socialmedia-celery
+    command: celery -A backend worker --loglevel=info --concurrency=2
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - redis
     networks:
       - socialmedia-network
     restart: unless-stopped
 
-  # 4. NGINX reverse proxy
+  # 5. Celery Beat scheduler (optional - for periodic tasks)
+  celery-beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: socialmedia-celery-beat
+    command: celery -A backend beat -l info
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - socialmedia-network
+    restart: unless-stopped
+
+  # 6. NGINX reverse proxy
   nginx:
     image: nginx:latest
     container_name: socialmedia-nginx
@@ -64,7 +105,7 @@ services:
 volumes:
   postgres_data:
   static_volume:
-  redis_data:  # ✅ Added Redis data persistence
+  redis_data:
 
 networks:
   socialmedia-network:

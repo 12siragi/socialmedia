@@ -1,43 +1,53 @@
-import React, { useState } from "react";
-import { Form, Button, Container, Row, Col } from "react-bootstrap";
-import useUserActions from "../../hooks/user.actions";
+// src/components/forms/LoginForm.jsx
+import React, { useState, useCallback, memo } from "react";
+import { Form, Button, Alert } from "react-bootstrap";
+import { authManager } from "../helpers/authManager";
+import axiosService from "../helpers/axios";
+import { useNavigate } from "react-router-dom";
 import SocialLoginButtons from "./SocialLoginButtons";
 import "../css/LoginForm.css";
 
 function LoginForm() {
-  const userActions = useUserActions();
+  const navigate = useNavigate();
   const [validated, setValidated] = useState(false);
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState(null);
   const [rememberMe, setRememberMe] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (event) => {
+  // ✅ Memoized to prevent recreation on every keystroke
+  const handleSubmit = useCallback(async (event) => {
     event.preventDefault();
     const loginForm = event.currentTarget;
     
     if (loginForm.checkValidity() === false) {
       event.stopPropagation();
+      setValidated(true);
+      return;
     }
     
     setValidated(true);
+    setIsLoading(true);
+    setError(null);
 
-    // Only proceed if form is valid
-    if (loginForm.checkValidity()) {
-      const formData = {
+    try {
+      const res = await axiosService.post(`/api/auth/login/`, {
         email: form.email,
         password: form.password,
-      };
-
-      userActions.login(formData)
-        .catch((err) => {
-          if (err.response) {
-            setError(err.response.data.detail || "Login failed");
-          } else {
-            setError("Network error");
-          }
-        });
+      });
+      
+      authManager.setAuth(res.data); // ✅ Triggers re-render via context
+      navigate("/");
+    } catch (err) {
+      setError(
+        err.response?.data?.detail || 
+        err.response?.data?.message || 
+        "Login failed. Please try again."
+      );
+    } finally {
+      setIsLoading(false);
     }
-  };
+  }, [form.email, form.password, navigate]);
 
   return (
     <div className="login-form-container">
@@ -52,10 +62,11 @@ function LoginForm() {
           <Form.Label>Email address</Form.Label>
           <Form.Control
             type="email"
-            placeholder=""
+            placeholder="you@example.com"
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
             required
+            disabled={isLoading}
             className="py-2"
           />
           <Form.Control.Feedback type="invalid">
@@ -68,11 +79,12 @@ function LoginForm() {
           <Form.Label>Password</Form.Label>
           <Form.Control
             type="password"
-            placeholder=""
+            placeholder="••••••••"
             minLength={8}
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
             required
+            disabled={isLoading}
             className="py-2"
           />
           <Form.Control.Feedback type="invalid">
@@ -88,16 +100,18 @@ function LoginForm() {
             label="Remember me"
             checked={rememberMe}
             onChange={(e) => setRememberMe(e.target.checked)}
+            disabled={isLoading}
           />
           <a href="/forgot-password" className="forgot-password-link">
             Forgot password?
           </a>
         </div>
 
+        {/* Error Alert */}
         {error && (
-          <div className="alert alert-danger login-error-alert mb-3">
+          <Alert variant="danger" className="login-error-alert mb-3">
             {error}
-          </div>
+          </Alert>
         )}
 
         {/* Sign In Button */}
@@ -105,8 +119,16 @@ function LoginForm() {
           variant="primary" 
           type="submit" 
           className="w-100 py-2 mb-3 fw-semibold login-submit-btn"
+          disabled={isLoading}
         >
-          Sign in
+          {isLoading ? (
+            <>
+              <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
+              Signing in...
+            </>
+          ) : (
+            'Sign in'
+          )}
         </Button>
 
         {/* Divider */}
@@ -117,11 +139,11 @@ function LoginForm() {
           </span>
         </div>
 
-        {/* Social Login Buttons - Now using component */}
-        <SocialLoginButtons />
+        {/* Social Login Buttons */}
+        <SocialLoginButtons disabled={isLoading} />
       </Form>
     </div>
   );
 }
 
-export default LoginForm;
+export default memo(LoginForm);
