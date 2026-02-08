@@ -236,8 +236,17 @@ CACHES = {
     }
 }
 
-SESSION_ENGINE = "django.contrib.sessions.backends.cache"
-SESSION_CACHE_ALIAS = "default"
+# ---------------------------
+# SESSION CONFIGURATION (FIXED FOR SOCIAL AUTH)
+# ---------------------------
+# ✅ Use database sessions instead of cache for social auth reliability
+SESSION_ENGINE = "django.contrib.sessions.backends.db"
+SESSION_COOKIE_AGE = 1209600  # 2 weeks
+SESSION_COOKIE_SECURE = True  # HTTPS only
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_DOMAIN = None  # Let Django handle it
+SESSION_SAVE_EVERY_REQUEST = False
 
 # ---------------------------
 # AUTHENTICATION BACKENDS
@@ -279,7 +288,7 @@ SOCIAL_AUTH_PIPELINE = (
     'social_core.pipeline.social_auth.associate_user',
     'social_core.pipeline.social_auth.load_extra_data',
     'social_core.pipeline.user.user_details',
-    'accounts.pipeline.authenticate_user',  # ✅ MOVED TO LAST
+    'accounts.pipeline.authenticate_user',  # ✅ LAST STEP - authenticates user
 )
 
 # What data to get from providers
@@ -309,12 +318,11 @@ SOCIAL_AUTH_POSTGRES_JSONFIELD = True
 SOCIAL_AUTH_REDIRECT_IS_HTTPS = not DEBUG  # True in production
 SOCIAL_AUTH_SANITIZE_REDIRECTS = True
 
-# To these (without v1):
+# Redirect URLs
 SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/api/auth/social/success/'
 SOCIAL_AUTH_LOGIN_ERROR_URL = '/api/auth/social/error/'
 SOCIAL_AUTH_NEW_USER_REDIRECT_URL = '/api/auth/social/success/'
 SOCIAL_AUTH_NEW_ASSOCIATION_REDIRECT_URL = '/api/auth/social/success/'
-# Disconnect settings
 SOCIAL_AUTH_DISCONNECT_REDIRECT_URL = '/api/auth/social/disconnected/'
 
 CSRF_TRUSTED_ORIGINS = [
@@ -322,7 +330,7 @@ CSRF_TRUSTED_ORIGINS = [
     "https://socialmedia-6.onrender.com",
     "https://*.ngrok-free.dev",
     "http://localhost:5173",
-    "http://localhost:8080",  # Add this line
+    "http://localhost:8080",
 ]
 
 # ---------------------------
@@ -364,8 +372,6 @@ DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL")
 FRONTEND_URL = os.environ.get("FRONTEND_URL")
 BACKEND_URL = os.environ.get("BACKEND_URL")
 
-
-# backend/settings.py (ADD TO END OF FILE)
 
 # ---------------------------
 # CELERY SETTINGS
