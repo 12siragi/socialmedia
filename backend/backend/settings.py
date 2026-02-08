@@ -314,14 +314,13 @@ SOCIAL_AUTH_POSTGRES_JSONFIELD = True
 SOCIAL_AUTH_REDIRECT_IS_HTTPS = not DEBUG  # True in production
 SOCIAL_AUTH_SANITIZE_REDIRECTS = True
 
-# Social auth redirects
-SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/api/v1/auth/social/success/'
-SOCIAL_AUTH_LOGIN_ERROR_URL = '/api/v1/auth/social/error/'
-SOCIAL_AUTH_NEW_USER_REDIRECT_URL = '/api/v1/auth/social/success/'
-SOCIAL_AUTH_NEW_ASSOCIATION_REDIRECT_URL = '/api/v1/auth/social/success/'
-
+# To these (without v1):
+SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/api/auth/social/success/'
+SOCIAL_AUTH_LOGIN_ERROR_URL = '/api/auth/social/error/'
+SOCIAL_AUTH_NEW_USER_REDIRECT_URL = '/api/auth/social/success/'
+SOCIAL_AUTH_NEW_ASSOCIATION_REDIRECT_URL = '/api/auth/social/success/'
 # Disconnect settings
-SOCIAL_AUTH_DISCONNECT_REDIRECT_URL = '/api/v1/auth/social/disconnected/'
+SOCIAL_AUTH_DISCONNECT_REDIRECT_URL = '/api/auth/social/disconnected/'
 
 CSRF_TRUSTED_ORIGINS = [
     "https://pingchart.vercel.app",
