@@ -272,20 +272,14 @@ SOCIAL_AUTH_PIPELINE = (
     'social_core.pipeline.social_auth.social_uid',
     'social_core.pipeline.social_auth.auth_allowed',
     'social_core.pipeline.social_auth.social_user',
-    'accounts.pipeline.authenticate_user', 
     'social_core.pipeline.user.get_username',
-    
-    # ✅ Custom pipeline to link to existing email
     'accounts.pipeline.associate_by_email',
-    
     'social_core.pipeline.user.create_user',
-    
-    # ✅ Custom pipeline to mark email as verified
     'accounts.pipeline.mark_email_verified',
-    
     'social_core.pipeline.social_auth.associate_user',
     'social_core.pipeline.social_auth.load_extra_data',
     'social_core.pipeline.user.user_details',
+    'accounts.pipeline.authenticate_user',  # ✅ MOVED TO LAST
 )
 
 # What data to get from providers
