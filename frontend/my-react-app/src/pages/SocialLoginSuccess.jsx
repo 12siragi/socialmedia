@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Container, Spinner, Alert } from "react-bootstrap";
-import { useAuth } from "../components/Authcontext";
+import useUserActions from "../hooks/user.actions";
 
 function SocialLoginSuccess() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { setUser } = useAuth();
+  const userActions = useUserActions();
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -16,45 +16,28 @@ function SocialLoginSuccess() {
     const firstName = searchParams.get("first_name");
     const lastName = searchParams.get("last_name");
 
-    console.log("📍 SocialLoginSuccess - Received params:", {
-      access: access ? "✅" : "❌",
-      refresh: refresh ? "✅" : "❌",
-      email,
-      firstName,
-      lastName
-    });
-
     if (access && refresh) {
       try {
-        // Store in localStorage
-        const userData = {
+        // Store tokens and user data using existing action
+        userActions.handleSocialLoginSuccess(
           access,
           refresh,
-          user: {
-            email,
-            first_name: firstName,
-            last_name: lastName,
-          },
-        };
+          email,
+          firstName,
+          lastName
+        );
 
-        localStorage.setItem("auth", JSON.stringify(userData));
-        
-        // ✅ Update Auth Context - this triggers ProtectedRoute re-render
-        setUser(userData.user);
-        
-        console.log("✅ Tokens stored and context updated");
-
-        // Navigate to home
-        navigate("/", { replace: true });
-        
+        // Small delay to ensure localStorage is updated
+        setTimeout(() => {
+          navigate("/");
+        }, 500);
       } catch (err) {
-        console.error("❌ Error handling social login:", err);
+        console.error("Error handling social login:", err);
         setError("Failed to complete login. Please try again.");
       }
     } else {
       // No tokens in URL - check for error
       const urlError = searchParams.get("error");
-      console.error("❌ No tokens found. Error:", urlError);
       setError(urlError || "Authentication failed. Missing tokens.");
       
       // Redirect to login after showing error
@@ -62,7 +45,7 @@ function SocialLoginSuccess() {
         navigate("/login");
       }, 3000);
     }
-  }, [searchParams, navigate, setUser]);
+  }, [searchParams, navigate]);
 
   if (error) {
     return (

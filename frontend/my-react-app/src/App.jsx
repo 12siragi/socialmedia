@@ -14,16 +14,12 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import ResetPasswordFailed from "./pages/ResetPasswordFailed";
 import SocialLoginSuccess from "./pages/SocialLoginSuccess";
-import SocialAuthCallback from "./pages/SocialAuthCallback";
-import { AuthProvider } from "./components/Authcontext";
-
 
 function App() {
   return (
-    <AuthProvider>
-      <Routes>
-        {/* ---------------- PUBLIC ROUTES ---------------- */}
-        <Route path="/login/" element={<Login />} />
+    <Routes>
+      {/* ---------------- PUBLIC ROUTES ---------------- */}
+      <Route path="/login/" element={<Login />} />
       <Route path="/register/" element={<Registration />} />
 
       {/* Email verification routes */}
@@ -33,7 +29,6 @@ function App() {
 
       {/* ✅ NEW: Social auth success callback route */}
       <Route path="/social-login-success" element={<SocialLoginSuccess />} />
-      <Route path="/social-auth-callback" element={<SocialAuthCallback />} />
 
       {/* Password reset routes */}
       <Route path="/forgot-password/" element={<ForgotPassword />} />
@@ -77,8 +72,7 @@ function App() {
         }
       />
     </Routes>
-  </AuthProvider>
-);
+  );
 }
 
 export default App;

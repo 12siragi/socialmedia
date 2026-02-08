@@ -1,42 +1,41 @@
 import React, { useState } from "react";
-import { Form, Button } from "react-bootstrap";
-import { useAuth } from "../Authcontext";
+import { Form, Button, Container, Row, Col } from "react-bootstrap";
+import useUserActions from "../../hooks/user.actions";
 import SocialLoginButtons from "./SocialLoginButtons";
 import "../css/LoginForm.css";
 
 function LoginForm() {
-  const { login } = useAuth();
+  const userActions = useUserActions();
   const [validated, setValidated] = useState(false);
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState(null);
   const [rememberMe, setRememberMe] = useState(false);
 
-  const handleSubmit = async (event) => {
+  const handleSubmit = (event) => {
     event.preventDefault();
     const loginForm = event.currentTarget;
     
     if (loginForm.checkValidity() === false) {
       event.stopPropagation();
-      setValidated(true);
-      return;
     }
     
     setValidated(true);
 
-    try {
+    // Only proceed if form is valid
+    if (loginForm.checkValidity()) {
       const formData = {
         email: form.email,
         password: form.password,
       };
 
-      await login(formData);
-      // Navigation is handled in the login function
-    } catch (err) {
-      if (err.response) {
-        setError(err.response.data.detail || "Login failed");
-      } else {
-        setError("Network error");
-      }
+      userActions.login(formData)
+        .catch((err) => {
+          if (err.response) {
+            setError(err.response.data.detail || "Login failed");
+          } else {
+            setError("Network error");
+          }
+        });
     }
   };
 
@@ -95,7 +94,6 @@ function LoginForm() {
           </a>
         </div>
 
-        {/* Error Message */}
         {error && (
           <div className="alert alert-danger login-error-alert mb-3">
             {error}
@@ -119,7 +117,7 @@ function LoginForm() {
           </span>
         </div>
 
-        {/* Social Login Buttons */}
+        {/* Social Login Buttons - Now using component */}
         <SocialLoginButtons />
       </Form>
     </div>
