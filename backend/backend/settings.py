@@ -89,12 +89,12 @@ TEMPLATES = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.middleware.gzip.GZipMiddleware',  
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # Serve static files
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',  # ✅ Required
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',  # ✅ Required
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -314,14 +314,14 @@ SOCIAL_AUTH_POSTGRES_JSONFIELD = True
 SOCIAL_AUTH_REDIRECT_IS_HTTPS = not DEBUG  # True in production
 SOCIAL_AUTH_SANITIZE_REDIRECTS = True
 
-# Login/Logout redirects (handled by custom view)
-SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/api/auth/social/success/'
-SOCIAL_AUTH_LOGIN_ERROR_URL = '/api/auth/social/error/'
-SOCIAL_AUTH_NEW_USER_REDIRECT_URL = '/api/auth/social/success/'
-SOCIAL_AUTH_NEW_ASSOCIATION_REDIRECT_URL = '/api/auth/social/success/'
+# Social auth redirects
+SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/api/v1/auth/social/success/'
+SOCIAL_AUTH_LOGIN_ERROR_URL = '/api/v1/auth/social/error/'
+SOCIAL_AUTH_NEW_USER_REDIRECT_URL = '/api/v1/auth/social/success/'
+SOCIAL_AUTH_NEW_ASSOCIATION_REDIRECT_URL = '/api/v1/auth/social/success/'
 
 # Disconnect settings
-SOCIAL_AUTH_DISCONNECT_REDIRECT_URL = '/api/auth/social/disconnected/'
+SOCIAL_AUTH_DISCONNECT_REDIRECT_URL = '/api/v1/auth/social/disconnected/'
 
 CSRF_TRUSTED_ORIGINS = [
     "https://pingchart.vercel.app",

@@ -1,5 +1,8 @@
+# accounts/pipeline.py
+
 import logging
 from django.core.cache import cache
+from django.contrib.auth import login
 
 logger = logging.getLogger(__name__)
 
@@ -26,30 +29,13 @@ def invalidate_user_cache(user):
 def associate_by_email(backend, details, user=None, *args, **kwargs):
     """
     Link social account to existing user if email matches.
-    
-    OPTIMIZATIONS:
-    - Uses cached user lookup by email
-    - Avoids DB query if user already authenticated
-    - Single query if cache miss
-    
-    This allows users who already have an account with email/password
-    to log in with social auth and automatically link the accounts.
-    
-    Flow:
-    1. User registers with email/password → account created
-    2. User later logs in with Google (same email) → this function links them
-    3. Now user can log in with either method
-    
-    PERFORMANCE: ~5ms (cache hit) or ~20ms (cache miss)
     """
     if user:
-        # User already exists, no need to check
         logger.debug(f"User already authenticated: {user.email}")
         return {'user': user}
 
     email = details.get('email')
     if not email:
-        # No email from provider, can't link
         logger.warning(f"No email provided by {backend.name}")
         return
 
@@ -58,14 +44,12 @@ def associate_by_email(backend, details, user=None, *args, **kwargs):
     existing_user = cache.get(cache_key)
     
     if existing_user is None:
-        # Cache MISS - query database
         from django.contrib.auth import get_user_model
         User = get_user_model()
         
         try:
             existing_user = User.objects.get(email=email)
             
-            # Cache the user
             cache.set(cache_key, existing_user, USER_CACHE_TIMEOUT)
             cache.set(get_user_cache_key(existing_user.id), existing_user, USER_CACHE_TIMEOUT)
             
@@ -73,11 +57,9 @@ def associate_by_email(backend, details, user=None, *args, **kwargs):
             return {'user': existing_user, 'is_new': False}
             
         except User.DoesNotExist:
-            # No existing user, will be created by next pipeline step
             logger.info(f"🆕 New user will be created for: {email}")
             return
     else:
-        # Cache HIT
         logger.debug(f"Cache HIT: Found existing user for {email}")
         logger.info(f"✅ Linking {backend.name} account to existing user: {email}")
         return {'user': existing_user, 'is_new': False}
@@ -86,22 +68,11 @@ def associate_by_email(backend, details, user=None, *args, **kwargs):
 def mark_email_verified(backend, user, is_new=False, *args, **kwargs):
     """
     Mark email as verified for social login users.
-    
-    OPTIMIZATIONS:
-    - Only updates if necessary (checks current value first)
-    - Uses update_fields for minimal DB write
-    - Invalidates cache after update
-    
-    Since the user authenticated with Google/GitHub/Facebook,
-    we trust that their email is valid and skip email verification.
-    
-    PERFORMANCE: ~10ms (if update needed), 0ms (if already verified)
     """
     if user and not user.is_email_verified:
         user.is_email_verified = True
         user.save(update_fields=['is_email_verified'])
         
-        # Invalidate cache since user was updated
         invalidate_user_cache(user)
         
         logger.info(f"✅ Marked email verified for social user: {user.email}")
@@ -112,19 +83,6 @@ def mark_email_verified(backend, user, is_new=False, *args, **kwargs):
 def update_user_details(backend, user, response, *args, **kwargs):
     """
     Update user profile with data from social provider.
-    
-    OPTIMIZATIONS:
-    - Only updates if fields are empty (avoids unnecessary writes)
-    - Batch updates with single save() call
-    - Uses update_fields for minimal DB write
-    - Cache invalidation only if updated
-    
-    This syncs the user's name and optionally avatar from their
-    social media profile.
-    
-    Note: Only updates if fields are empty, doesn't overwrite existing data.
-    
-    PERFORMANCE: ~15ms (if update needed), 0ms (if no update)
     """
     if not user:
         return
@@ -132,7 +90,6 @@ def update_user_details(backend, user, response, *args, **kwargs):
     updated = False
     fields_to_update = []
 
-    # Update name based on provider
     if backend.name == 'google-oauth2':
         first_name = response.get('given_name', '')
         last_name = response.get('family_name', '')
@@ -148,7 +105,6 @@ def update_user_details(backend, user, response, *args, **kwargs):
             updated = True
             
     elif backend.name == 'github':
-        # GitHub provides full name as single string
         name = response.get('name', '')
         if name and not user.first_name:
             parts = name.split(' ', 1)
@@ -174,15 +130,36 @@ def update_user_details(backend, user, response, *args, **kwargs):
             fields_to_update.append('last_name')
             updated = True
     
-    # Save only if there were changes
     if updated and fields_to_update:
         user.save(update_fields=fields_to_update)
-        
-        # Invalidate cache since user was updated
         invalidate_user_cache(user)
-        
         logger.info(f"✅ Updated {', '.join(fields_to_update)} for {user.email} from {backend.name}")
     else:
         logger.debug(f"No updates needed for {user.email}")
+    
+    return {'user': user}
+
+
+def authenticate_user(strategy, backend, user, request, *args, **kwargs):
+    """
+    Explicitly authenticate the user in the Django session.
+    
+    This ensures request.user.is_authenticated returns True
+    in the SocialAuthSuccessView.
+    
+    CRITICAL: This must be the LAST step in the pipeline.
+    
+    PERFORMANCE: ~5ms (session write)
+    """
+    if user and request:
+        # Log the user into the Django session
+        login(
+            request,
+            user,
+            backend='django.contrib.auth.backends.ModelBackend'
+        )
+        logger.info(f"✅ User {user.email} authenticated in session via {backend.name}")
+    else:
+        logger.error(f"❌ Failed to authenticate user in session - user: {user}, request: {request}")
     
     return {'user': user}
