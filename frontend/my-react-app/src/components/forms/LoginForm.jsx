@@ -1,41 +1,42 @@
 import React, { useState } from "react";
-import { Form, Button, Container, Row, Col } from "react-bootstrap";
-import useUserActions from "../../hooks/user.actions";
+import { Form, Button } from "react-bootstrap";
+import { useAuth } from "../Authcontext";
 import SocialLoginButtons from "./SocialLoginButtons";
 import "../css/LoginForm.css";
 
 function LoginForm() {
-  const userActions = useUserActions();
+  const { login } = useAuth();
   const [validated, setValidated] = useState(false);
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState(null);
   const [rememberMe, setRememberMe] = useState(false);
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     const loginForm = event.currentTarget;
     
     if (loginForm.checkValidity() === false) {
       event.stopPropagation();
+      setValidated(true);
+      return;
     }
     
     setValidated(true);
 
-    // Only proceed if form is valid
-    if (loginForm.checkValidity()) {
+    try {
       const formData = {
         email: form.email,
         password: form.password,
       };
 
-      userActions.login(formData)
-        .catch((err) => {
-          if (err.response) {
-            setError(err.response.data.detail || "Login failed");
-          } else {
-            setError("Network error");
-          }
-        });
+      await login(formData);
+      // Navigation is handled in the login function
+    } catch (err) {
+      if (err.response) {
+        setError(err.response.data.detail || "Login failed");
+      } else {
+        setError("Network error");
+      }
     }
   };
 
@@ -118,7 +119,7 @@ function LoginForm() {
           </span>
         </div>
 
-        {/* Social Login Buttons - Now using component */}
+        {/* Social Login Buttons */}
         <SocialLoginButtons />
       </Form>
     </div>

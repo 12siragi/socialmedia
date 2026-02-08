@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Container, Spinner, Alert } from "react-bootstrap";
+import { useAuth } from "../components/Authcontext";
 
 function SocialLoginSuccess() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { setUser } = useAuth();
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -24,7 +26,7 @@ function SocialLoginSuccess() {
 
     if (access && refresh) {
       try {
-        // ✅ DIRECTLY store in localStorage (don't rely on hook)
+        // Store in localStorage
         const userData = {
           access,
           refresh,
@@ -37,10 +39,12 @@ function SocialLoginSuccess() {
 
         localStorage.setItem("auth", JSON.stringify(userData));
         
-        console.log("✅ Tokens stored in localStorage");
-        console.log("📦 Stored data:", JSON.parse(localStorage.getItem("auth")));
+        // ✅ Update Auth Context - this triggers ProtectedRoute re-render
+        setUser(userData.user);
+        
+        console.log("✅ Tokens stored and context updated");
 
-        // ✅ Immediate redirect (no delay needed)
+        // Navigate to home
         navigate("/", { replace: true });
         
       } catch (err) {
@@ -58,7 +62,7 @@ function SocialLoginSuccess() {
         navigate("/login");
       }, 3000);
     }
-  }, [searchParams, navigate]);
+  }, [searchParams, navigate, setUser]);
 
   if (error) {
     return (
