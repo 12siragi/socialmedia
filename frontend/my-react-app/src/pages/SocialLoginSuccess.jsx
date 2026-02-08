@@ -1,12 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Container, Spinner, Alert } from "react-bootstrap";
-import useUserActions from "../hooks/user.actions";
 
 function SocialLoginSuccess() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const userActions = useUserActions();
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -16,28 +14,43 @@ function SocialLoginSuccess() {
     const firstName = searchParams.get("first_name");
     const lastName = searchParams.get("last_name");
 
+    console.log("📍 SocialLoginSuccess - Received params:", {
+      access: access ? "✅" : "❌",
+      refresh: refresh ? "✅" : "❌",
+      email,
+      firstName,
+      lastName
+    });
+
     if (access && refresh) {
       try {
-        // Store tokens and user data using existing action
-        userActions.handleSocialLoginSuccess(
+        // ✅ DIRECTLY store in localStorage (don't rely on hook)
+        const userData = {
           access,
           refresh,
-          email,
-          firstName,
-          lastName
-        );
+          user: {
+            email,
+            first_name: firstName,
+            last_name: lastName,
+          },
+        };
 
-        // Small delay to ensure localStorage is updated
-        setTimeout(() => {
-          navigate("/");
-        }, 500);
+        localStorage.setItem("auth", JSON.stringify(userData));
+        
+        console.log("✅ Tokens stored in localStorage");
+        console.log("📦 Stored data:", JSON.parse(localStorage.getItem("auth")));
+
+        // ✅ Immediate redirect (no delay needed)
+        navigate("/", { replace: true });
+        
       } catch (err) {
-        console.error("Error handling social login:", err);
+        console.error("❌ Error handling social login:", err);
         setError("Failed to complete login. Please try again.");
       }
     } else {
       // No tokens in URL - check for error
       const urlError = searchParams.get("error");
+      console.error("❌ No tokens found. Error:", urlError);
       setError(urlError || "Authentication failed. Missing tokens.");
       
       // Redirect to login after showing error
