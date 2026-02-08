@@ -1,15 +1,19 @@
-// components/ProtectedRoute.jsx
-
+// src/routes/ProtectedRoute.jsx
 import React, { memo } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../components/contexts/AuthContext";
 
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated } = useAuth();
-  
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login/" />;
+  const location = useLocation();
+
+  if (!isAuthenticated) {
+    // ✅ Save the attempted location for redirect after login
+    return <Navigate to="/login/" state={{ from: location }} replace />;
+  }
+
+  return <>{children}</>;
 }
 
-// ✅ Prevent re-renders when parent updates
 export default memo(ProtectedRoute);
