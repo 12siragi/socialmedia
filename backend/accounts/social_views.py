@@ -55,10 +55,12 @@ class SocialAuthSuccessView(APIView):
         if not user.is_authenticated:
             logger.warning("⚠️ User not in Django session, checking cache token...")
             
-            # Debug: Log session info
-            logger.error(f"🔍 Session key: {request.session.session_key}")
-            logger.error(f"🔍 Session keys: {list(request.session.keys())}")
-            logger.error(f"🔍 Session items: {dict(request.session.items())}")
+            # Debug: Session info (safe version)
+            try:
+                session_key = request.session.session_key
+                logger.error(f"🔍 View session key: {session_key}")
+            except Exception as e:
+                logger.error(f"🔍 View session error: {e}")
             
             # Try to get token from session
             token = request.session.get('social_auth_token')
@@ -81,9 +83,12 @@ class SocialAuthSuccessView(APIView):
                         
                         # Clean up (one-time use token)
                         cache.delete(cache_key)
-                        if 'social_auth_token' in request.session:
-                            del request.session['social_auth_token']
-                            request.session.save()
+                        try:
+                            if 'social_auth_token' in request.session:
+                                del request.session['social_auth_token']
+                                request.session.save()
+                        except:
+                            pass
                         
                         logger.info(f"✅ Retrieved user from cache: {user.email}")
                         
@@ -91,28 +96,29 @@ class SocialAuthSuccessView(APIView):
                         logger.error(f"❌ User {user_data['user_id']} not found in database")
                         return redirect(f"{settings.FRONTEND_URL}/login?error=user_not_found")
                 else:
-                    logger.error(f"❌ No user data found in cache for token {token[:16]}... (expired or used)")
+                    logger.error(f"❌ No user data found in cache for token")
                     
-                    # Debug: Check if key exists in Redis
-                    logger.error(f"🔍 Checking Redis for key: {cache_key}")
-                    all_keys = cache.keys('social_auth_pending:*') if hasattr(cache, 'keys') else 'N/A'
-                    logger.error(f"🔍 All social_auth_pending keys in Redis: {all_keys}")
+                    # Debug: Check Redis
+                    try:
+                        import redis
+                        r = redis.Redis(host='redis', port=6379, db=1)
+                        all_keys = r.keys('social_auth_pending:*')
+                        logger.error(f"🔍 Redis has {len(all_keys)} pending tokens")
+                    except:
+                        pass
                     
                     return redirect(f"{settings.FRONTEND_URL}/login?error=token_expired")
             else:
                 logger.error("❌ No token found in session")
                 
-                # Debug: Check Redis directly for any pending tokens
-                logger.error("🔍 Checking all pending tokens in Redis...")
+                # Debug: Check Redis for any tokens
                 try:
                     import redis
                     r = redis.Redis(host='redis', port=6379, db=1)
                     keys = r.keys('social_auth_pending:*')
-                    logger.error(f"🔍 Found {len(keys)} pending tokens in Redis: {keys}")
-                    if keys:
-                        for key in keys[:3]:  # Show first 3
-                            val = r.get(key)
-                            logger.error(f"🔍 Key: {key}, Value: {val}")
+                    logger.error(f"🔍 Found {len(keys)} pending tokens in Redis")
+                    if keys and len(keys) > 0:
+                        logger.error(f"🔍 First key: {keys[0]}")
                 except Exception as e:
                     logger.error(f"🔍 Redis debug error: {e}")
                 
