@@ -97,16 +97,30 @@ def mark_email_verified(backend, user, is_new=False, *args, **kwargs):
 def authenticate_user(strategy, backend, user, request, *args, **kwargs):
     """
     Explicitly authenticate the user in the Django session.
+    
+    This ensures request.user.is_authenticated returns True
+    in the SocialAuthSuccessView.
+    
+    CRITICAL: This must be the LAST step in the pipeline.
     """
     try:
         logger.error(f"🔵 authenticate_user STARTED - user: {user}, request: {bool(request)}")
         
         if user and request:
+            # Method 1: Standard Django login
             login(
                 request,
                 user,
                 backend='django.contrib.auth.backends.ModelBackend'
             )
+            
+            # Method 2: Force session save and store user ID explicitly
+            request.session['_auth_user_id'] = str(user.pk)
+            request.session['_auth_user_backend'] = 'django.contrib.auth.backends.ModelBackend'
+            request.session.modified = True
+            request.session.save()
+            
+            logger.error(f"✅ Session saved - session_key: {request.session.session_key}, user_id: {user.pk}")
             logger.info(f"✅ User {user.email} authenticated in session via {backend.name}")
         else:
             logger.error(f"❌ Failed to authenticate user in session - user: {user}, request: {request}")
@@ -116,3 +130,64 @@ def authenticate_user(strategy, backend, user, request, *args, **kwargs):
     except Exception as e:
         logger.error(f"❌ EXCEPTION in authenticate_user: {e}", exc_info=True)
         raise
+
+
+def update_user_details(backend, user, response, *args, **kwargs):
+    """
+    Update user profile with data from social provider.
+    (Optional - can be removed if not needed)
+    """
+    if not user:
+        return
+
+    updated = False
+    fields_to_update = []
+
+    if backend.name == 'google-oauth2':
+        first_name = response.get('given_name', '')
+        last_name = response.get('family_name', '')
+        
+        if not user.first_name and first_name:
+            user.first_name = first_name
+            fields_to_update.append('first_name')
+            updated = True
+            
+        if not user.last_name and last_name:
+            user.last_name = last_name
+            fields_to_update.append('last_name')
+            updated = True
+            
+    elif backend.name == 'github':
+        name = response.get('name', '')
+        if name and not user.first_name:
+            parts = name.split(' ', 1)
+            user.first_name = parts[0]
+            fields_to_update.append('first_name')
+            updated = True
+            
+            if len(parts) > 1:
+                user.last_name = parts[1]
+                fields_to_update.append('last_name')
+                
+    elif backend.name == 'facebook':
+        first_name = response.get('first_name', '')
+        last_name = response.get('last_name', '')
+        
+        if not user.first_name and first_name:
+            user.first_name = first_name
+            fields_to_update.append('first_name')
+            updated = True
+            
+        if not user.last_name and last_name:
+            user.last_name = last_name
+            fields_to_update.append('last_name')
+            updated = True
+    
+    if updated and fields_to_update:
+        user.save(update_fields=fields_to_update)
+        invalidate_user_cache(user)
+        logger.info(f"✅ Updated {', '.join(fields_to_update)} for {user.email} from {backend.name}")
+    else:
+        logger.debug(f"No updates needed for {user.email}")
+    
+    return {'user': user}

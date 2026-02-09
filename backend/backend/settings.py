@@ -235,27 +235,25 @@ CACHES = {
         }
     }
 }
-
 # ---------------------------
-# SESSION CONFIGURATION (FIXED FOR SOCIAL AUTH)
+# SESSION SETTINGS (Add this section)
 # ---------------------------
-# ✅ Use database sessions instead of cache for social auth reliability
 SESSION_ENGINE = "django.contrib.sessions.backends.db"
+SESSION_COOKIE_NAME = 'sessionid'
 SESSION_COOKIE_AGE = 1209600  # 2 weeks
-SESSION_COOKIE_SECURE = True  # HTTPS only
+SESSION_SAVE_EVERY_REQUEST = True  # Important for social auth!
+SESSION_COOKIE_SECURE = False  # Set to True if using HTTPS everywhere
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
-SESSION_COOKIE_DOMAIN = None  # Let Django handle it
-SESSION_SAVE_EVERY_REQUEST = False
 
 # ---------------------------
 # AUTHENTICATION BACKENDS
 # ---------------------------
 AUTHENTICATION_BACKENDS = (
-    # ✅ Social Auth Backends
+    # Social Auth Backends
     'social_core.backends.google.GoogleOAuth2',
     'social_core.backends.github.GithubOAuth2',
-    'social_core.backends.facebook.FacebookOAuth2',  # Optional
+    'social_core.backends.facebook.FacebookOAuth2',
     
     # Default Django backend (email/password)
     'django.contrib.auth.backends.ModelBackend',
@@ -288,7 +286,7 @@ SOCIAL_AUTH_PIPELINE = (
     'social_core.pipeline.social_auth.associate_user',
     'social_core.pipeline.social_auth.load_extra_data',
     'social_core.pipeline.user.user_details',
-    'accounts.pipeline.authenticate_user',  # ✅ LAST STEP - authenticates user
+    'accounts.pipeline.authenticate_user',  # MUST be last!
 )
 
 # What data to get from providers
@@ -304,14 +302,9 @@ SOCIAL_AUTH_FACEBOOK_PROFILE_EXTRA_PARAMS = {
     'fields': 'id,name,email,picture'
 }
 
-# Field mapping - maps social provider fields to your CustomUser model
-SOCIAL_AUTH_GOOGLE_OAUTH2_FIELD_SELECTORS = ['email', 'name']
+# Field mapping
 SOCIAL_AUTH_USER_FIELDS = ['email', 'first_name', 'last_name']
-
-# Auto-set email verified for social logins (handled in pipeline)
 SOCIAL_AUTH_CLEAN_USERNAMES = True
-
-# Where to store associations
 SOCIAL_AUTH_POSTGRES_JSONFIELD = True
 
 # Security
