@@ -39,6 +39,7 @@ def invalidate_user_social_cache(user_id):
 # ===================================================================================
 # VIEWS
 # ===================================================================================
+
 class SocialAuthSuccessView(APIView):
     """
     Called after successful OAuth login.
@@ -147,3 +148,174 @@ class SocialAuthSuccessView(APIView):
         logger.info(f"✅ Redirecting to: {redirect_url[:80]}...")
         
         return redirect(redirect_url)
+
+
+class SocialAuthErrorView(APIView):
+    """
+    Called when OAuth login fails.
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        error = request.GET.get('error', 'unknown_error')
+        logger.error(f"❌ Social auth error: {error}")
+        
+        return redirect(f"{settings.FRONTEND_URL}/login?error={error}")
+
+
+class SocialAuthDisconnectView(APIView):
+    """
+    Called after user disconnects a social account.
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        return redirect(f"{settings.FRONTEND_URL}/settings?message=account_disconnected")
+
+
+class SocialAuthProvidersView(APIView):
+    """
+    Get list of available social auth providers.
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        cache_key = get_providers_cache_key()
+        
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            logger.debug("Cache HIT: Providers list from cache")
+            return Response(cached_data)
+        
+        # Cache MISS - build providers list
+        logger.debug("Cache MISS: Building providers list")
+        providers = []
+        
+        if getattr(settings, 'SOCIAL_AUTH_GOOGLE_OAUTH2_KEY', None):
+            providers.append({
+                'name': 'google-oauth2',
+                'display_name': 'Google',
+                'login_url': '/api/auth/social/login/google-oauth2/',
+                'icon': 'google'
+            })
+        
+        if getattr(settings, 'SOCIAL_AUTH_GITHUB_KEY', None):
+            providers.append({
+                'name': 'github',
+                'display_name': 'GitHub',
+                'login_url': '/api/auth/social/login/github/',
+                'icon': 'github'
+            })
+        
+        if getattr(settings, 'SOCIAL_AUTH_FACEBOOK_KEY', None):
+            providers.append({
+                'name': 'facebook',
+                'display_name': 'Facebook',
+                'login_url': '/api/auth/social/login/facebook/',
+                'icon': 'facebook'
+            })
+        
+        response_data = {
+            'providers': providers,
+            'count': len(providers)
+        }
+        
+        # Cache for 5 minutes
+        cache.set(cache_key, response_data, PROVIDERS_CACHE_TIMEOUT)
+        logger.debug(f"Cached {len(providers)} providers for {PROVIDERS_CACHE_TIMEOUT}s")
+        
+        return Response(response_data)
+
+
+class UserSocialAccountsView(APIView):
+    """
+    Get user's connected social accounts.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        cache_key = get_user_social_accounts_cache_key(user.id)
+        
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            logger.debug(f"Cache HIT: Social accounts for user {user.id}")
+            return Response(cached_data)
+        
+        # Cache MISS - fetch from DB
+        logger.debug(f"Cache MISS: Fetching social accounts for user {user.id}")
+        
+        from social_django.models import UserSocialAuth
+        
+        social_accounts = UserSocialAuth.objects.filter(
+            user=user
+        ).select_related('user').only('provider', 'uid', 'created', 'extra_data')
+        
+        accounts = []
+        for account in social_accounts:
+            extra_data = account.extra_data or {}
+            
+            accounts.append({
+                'provider': account.provider,
+                'uid': account.uid,
+                'created': account.created.isoformat() if account.created else None,
+                'email': extra_data.get('email', ''),
+                'name': extra_data.get('name', ''),
+            })
+        
+        response_data = {
+            'social_accounts': accounts,
+            'count': len(accounts)
+        }
+        
+        cache.set(cache_key, response_data, USER_SOCIAL_ACCOUNTS_CACHE_TIMEOUT)
+        logger.debug(f"Cached {len(accounts)} social accounts for user {user.id}")
+        
+        return Response(response_data)
+
+    def delete(self, request):
+        """Disconnect a social account."""
+        provider = request.data.get('provider')
+        
+        if not provider:
+            return Response(
+                {'detail': 'Provider is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        user = request.user
+        
+        from social_django.models import UserSocialAuth
+        
+        try:
+            social_account = UserSocialAuth.objects.select_related('user').get(
+                user=user,
+                provider=provider
+            )
+            
+            has_password = user.has_usable_password()
+            other_socials = UserSocialAuth.objects.filter(user=user).exclude(provider=provider).exists()
+            
+            if not has_password and not other_socials:
+                return Response(
+                    {'detail': 'Cannot disconnect last login method. Set a password first.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            social_account.delete()
+            invalidate_user_social_cache(user.id)
+            
+            logger.info(f"✅ Disconnected {provider} for user: {user.email}")
+            
+            return Response({
+                'detail': f'{provider} account disconnected successfully',
+                'provider': provider
+            })
+            
+        except UserSocialAuth.DoesNotExist:
+            return Response(
+                {'detail': f'No {provider} account found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
