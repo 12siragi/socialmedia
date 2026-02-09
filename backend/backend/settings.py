@@ -238,16 +238,20 @@ CACHES = {
 # ---------------------------
 # SESSION SETTINGS (Add this section)
 # ---------------------------
+# backend/settings.py
+
 SESSION_ENGINE = "django.contrib.sessions.backends.db"
 SESSION_COOKIE_NAME = 'sessionid'
 SESSION_COOKIE_AGE = 1209600  # 2 weeks
-SESSION_SAVE_EVERY_REQUEST = True  # Important for social auth!
-SESSION_COOKIE_SECURE = False  # Set to True if using HTTPS everywhere
-SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SAMESITE = 'Lax'
+SESSION_SAVE_EVERY_REQUEST = True
 
-# ---------------------------
-# AUTHENTICATION BACKENDS
+# Critical settings:
+SESSION_COOKIE_SECURE = False  # Set False for development/ngrok
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = None  # Changed from 'Lax' to None
+SESSION_COOKIE_DOMAIN = None    # Let Django auto-detect
+
+
 # ---------------------------
 AUTHENTICATION_BACKENDS = (
     # Social Auth Backends
