@@ -7,7 +7,6 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from urllib.parse import urlencode
-from social_django.utils import load_strategy
 import logging
 
 logger = logging.getLogger(__name__)
@@ -45,43 +44,60 @@ class SocialAuthSuccessView(APIView):
     """
     Called after successful OAuth login.
     
-    Retrieves user from strategy session (survives redirect).
+    Retrieves user from Redis cache using token stored in session.
     Generates JWT tokens and redirects to frontend.
+    
+    Flow:
+    1. Pipeline stores user data in Redis with unique token
+    2. Token is stored in session
+    3. After redirect, this view retrieves token from session
+    4. Uses token to get user data from Redis
+    5. Generates JWT tokens and redirects to frontend
     """
     permission_classes = [AllowAny]
 
     def get(self, request):
         user = request.user
         
-        # If not authenticated via Django session, try strategy session
+        # If not authenticated via Django session, try cache token method
         if not user.is_authenticated:
-            logger.warning("⚠️ User not in Django session, checking strategy session...")
+            logger.warning("⚠️ User not in Django session, checking cache token...")
             
-            strategy = load_strategy(request)
-            user_id = strategy.session_get('pending_user_id')
+            # Try to get token from session
+            token = request.session.get('social_auth_token')
             
-            if user_id:
-                logger.info(f"✅ Found user_id {user_id} in strategy session")
+            if token:
+                logger.info(f"✅ Found token in session: {token[:16]}...")
                 
-                from django.contrib.auth import get_user_model
-                User = get_user_model()
+                # Retrieve user data from cache using token
+                cache_key = f'social_auth_pending:{token}'
+                user_data = cache.get(cache_key)
                 
-                try:
-                    user = User.objects.get(pk=user_id)
+                if user_data:
+                    logger.info(f"✅ Found user data in cache for user_id: {user_data.get('user_id')}")
                     
-                    # Clean up strategy session
-                    strategy.session_set('pending_user_id', None)
-                    strategy.session_set('pending_user_email', None)
-                    strategy.session_set('pending_user_first_name', None)
-                    strategy.session_set('pending_user_last_name', None)
+                    from django.contrib.auth import get_user_model
+                    User = get_user_model()
                     
-                    logger.info(f"✅ Retrieved user from strategy session: {user.email}")
-                    
-                except User.DoesNotExist:
-                    logger.error(f"❌ User {user_id} not found in database")
-                    return redirect(f"{settings.FRONTEND_URL}/login?error=user_not_found")
+                    try:
+                        user = User.objects.get(pk=user_data['user_id'])
+                        
+                        # Clean up (one-time use token)
+                        cache.delete(cache_key)
+                        if 'social_auth_token' in request.session:
+                            del request.session['social_auth_token']
+                            request.session.save()
+                        
+                        logger.info(f"✅ Retrieved user from cache: {user.email}")
+                        
+                    except User.DoesNotExist:
+                        logger.error(f"❌ User {user_data['user_id']} not found in database")
+                        return redirect(f"{settings.FRONTEND_URL}/login?error=user_not_found")
+                else:
+                    logger.error(f"❌ No user data found in cache for token {token[:16]}... (expired or used)")
+                    return redirect(f"{settings.FRONTEND_URL}/login?error=token_expired")
             else:
-                logger.error("❌ No user_id in strategy session")
+                logger.error("❌ No token found in session")
                 return redirect(f"{settings.FRONTEND_URL}/login?error=authentication_failed")
 
         # Generate JWT tokens
@@ -91,7 +107,7 @@ class SocialAuthSuccessView(APIView):
 
         logger.info(f"✅ Tokens generated for: {user.email}")
 
-        # Invalidate user's social accounts cache
+        # Invalidate user's social accounts cache (might have new linked account)
         invalidate_user_social_cache(user.id)
 
         # Redirect to frontend with tokens
@@ -112,6 +128,8 @@ class SocialAuthSuccessView(APIView):
 class SocialAuthErrorView(APIView):
     """
     Called when OAuth login fails.
+    
+    PERFORMANCE: Simple redirect, no DB queries
     """
     permission_classes = [AllowAny]
 
@@ -125,6 +143,8 @@ class SocialAuthErrorView(APIView):
 class SocialAuthDisconnectView(APIView):
     """
     Called after user disconnects a social account.
+    
+    PERFORMANCE: Simple redirect, no DB queries
     """
     permission_classes = [AllowAny]
 
