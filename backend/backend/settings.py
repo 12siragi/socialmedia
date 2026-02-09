@@ -347,10 +347,7 @@ CORS_ALLOW_CREDENTIALS = True  # ✅ Important for social auth cookies
 # ---------------------------
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# ---------------------------
-# DEFAULT AVATAR
-# ---------------------------
-DEFAULT_AVATAR_URL = "https://avatars.dicebear.com/api/identicon/.svg"
+
 
 # ---------------------------
 # EMAIL SETTINGS

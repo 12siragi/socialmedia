@@ -184,14 +184,19 @@ class CustomUser(AbstractUser):
 
     @property
     def avatar_url(self):
-        """
-        Always return a valid avatar URL.
-        
-        OPTIMIZATION: No DB query (uses in-memory field)
-        """
-        if self.avatar:
-            return self.avatar.url
-        return getattr(settings, 'DEFAULT_AVATAR_URL', '/static/default-avatar.png')
+
+       if self.avatar:
+           return self.avatar.url
+
+    # Use full_name or email part for initials
+       name = self.full_name or self.email.split('@')[0]
+
+       import urllib.parse
+       encoded_name = urllib.parse.quote_plus(name)
+
+    # Generate colorful rounded initials avatar
+       return f"https://ui-avatars.com/api/?name={encoded_name}&background=random&color=fff&rounded=true"
+
 
     def __str__(self):
         return self.email
