@@ -1,27 +1,39 @@
 // src/components/Navbar.jsx
-import React, { memo } from "react";
+import React, { memo, useState } from "react";
 import { Navbar, Container, Image, NavDropdown, Nav } from "react-bootstrap";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { useAuth } from "./contexts/AuthContext";
 import { authManager } from "./helpers/authManager";
 import "./css/Navbar.css";
 
 function Navigationbar() {
   const navigate = useNavigate();
-  const { user, isAuthenticated } = useAuth(); // ✅ Reactive, no function recreation
+  const location = useLocation();
+  const { user, isAuthenticated } = useAuth();
+  const [expanded, setExpanded] = useState(false);
 
   const handleLogout = () => {
-    authManager.clearAuth(); // ✅ Direct call, triggers re-render via context
+    authManager.clearAuth();
     navigate("/login/");
+    setExpanded(false); // Close navbar on logout
   };
 
-  // ✅ Show navbar skeleton instead of hiding completely
+  const handleNavClick = () => {
+    setExpanded(false); // Close navbar when clicking nav items
+  };
+
+  // Helper function to check if current route is active
+  const isActiveRoute = (path) => {
+    return location.pathname === path;
+  };
+
+  // ✅ Show navbar skeleton for unauthenticated users
   if (!isAuthenticated) {
     return (
       <Navbar className="app-navbar" expand="lg">
         <Container fluid>
-          <Navbar.Brand as={Link} to="/login" className="app-brand">
-            PingChart
+          <Navbar.Brand as={Link} to="/login" >
+            <span className="brand-text">PingChart</span>
           </Navbar.Brand>
         </Container>
       </Navbar>
@@ -29,68 +41,125 @@ function Navigationbar() {
   }
 
   return (
-    <Navbar className="app-navbar" expand="lg">
+    <Navbar 
+      className="app-navbar" 
+      expand="lg" 
+      expanded={expanded}
+      onToggle={setExpanded}
+    >
       <Container fluid>
-        <Navbar.Brand as={Link} to="/" className="app-brand">
-          PingChart
+        <Navbar.Brand as={Link} to="/"  onClick={handleNavClick}>
+          <span className="brand-text">PingChart</span>
         </Navbar.Brand>
 
-        <Navbar.Toggle aria-controls="navbar-nav">
+        <Navbar.Toggle aria-controls="navbar-nav" className="custom-toggler">
           <span className="toggle-line" />
           <span className="toggle-line" />
           <span className="toggle-line" />
         </Navbar.Toggle>
 
         <Navbar.Collapse id="navbar-nav">
-          <div className="navbar-spacer" />
-
-          <Nav className="navbar-center">
-            <Nav.Link as={Link} to="/" className="mx-2">
-              <i className="bi bi-house-door me-2" />
-              Home
+          {/* Center Navigation Links */}
+          <Nav className="navbar-center mx-auto">
+            <Nav.Link 
+              as={Link} 
+              to="/" 
+              className={`nav-link-item ${isActiveRoute('/') ? 'active' : ''}`}
+              onClick={handleNavClick}
+            >
+              <i className="bi bi-house-door nav-icon" />
+              <span className="nav-text">Home</span>
             </Nav.Link>
-            <Nav.Link as={Link} to="/explore" className="mx-2">
-              <i className="bi bi-compass me-2" />
-              Explore
+            <Nav.Link 
+              as={Link} 
+              to="/explore" 
+              className={`nav-link-item ${isActiveRoute('/explore') ? 'active' : ''}`}
+              onClick={handleNavClick}
+            >
+              <i className="bi bi-compass nav-icon" />
+              <span className="nav-text">Explore</span>
             </Nav.Link>
-            <Nav.Link as={Link} to="/messages" className="mx-2">
-              <i className="bi bi-chat-dots me-2" />
-              Messages
+            <Nav.Link 
+              as={Link} 
+              to="/messages" 
+              className={`nav-link-item ${isActiveRoute('/messages') ? 'active' : ''}`}
+              onClick={handleNavClick}
+            >
+              <i className="bi bi-chat-dots nav-icon" />
+              <span className="nav-text">Messages</span>
             </Nav.Link>
           </Nav>
 
-          <Nav className="navbar-user align-items-center">
-            <span className="text-light me-3 d-none d-md-inline">
-              {user?.first_name || user?.email}
-            </span>
+          {/* User Menu */}
+          <Nav className="navbar-user ms-lg-auto">
+            {/* User Name - Desktop Only */}
+            <div className="user-greeting d-none d-lg-flex align-items-center me-3">
+              <span className="greeting-text">
+                Hello, <strong>{user?.first_name || 'User'}</strong>
+              </span>
+            </div>
+
+            {/* User Dropdown */}
             <NavDropdown
               align="end"
+              className="user-dropdown"
               title={
-                <Image
-                  src={user?.avatar || '/default-avatar.png'}
-                  roundedCircle
-                  width={36}
-                  height={36}
-                  alt="User avatar"
-                />
+                <div className="user-avatar-wrapper">
+                  <Image
+                    src={`https://ui-avatars.com/api/?name=${user?.first_name}+${user?.last_name}&background=8b5cf6&color=fff&bold=true`}
+                    roundedCircle
+                    width={40}
+                    height={40}
+                    alt="User avatar"
+                    className="user-avatar"
+                  />
+                  <span className="online-indicator" />
+                </div>
               }
             >
+              {/* Dropdown Header */}
               <div className="dropdown-header-custom">
-                <div className="fw-bold text-white">
-                  {user?.first_name} {user?.last_name}
+                <div className="user-info">
+                  <div className="user-name">
+                    {user?.first_name} {user?.last_name}
+                  </div>
+                  <div className="user-email">{user?.email}</div>
                 </div>
-                <small className="text-muted">{user?.email}</small>
               </div>
 
-              <NavDropdown.Item as={Link} to={`/profile/${user?.id}/`}>
-                Profile
+              <NavDropdown.Divider />
+
+              {/* Profile Link */}
+              <NavDropdown.Item 
+                as={Link} 
+                to={`/profile/${user?.id}/`}
+                onClick={handleNavClick}
+                className="dropdown-item-custom"
+              >
+                <i className="bi bi-person-circle dropdown-icon" />
+                <span>My Profile</span>
               </NavDropdown.Item>
-              <NavDropdown.Item as={Link} to="/settings">
-                <i className="bi bi-gear me-2" />
-                Settings
+
+              {/* Settings Link */}
+              <NavDropdown.Item 
+                as={Link} 
+                to="/settings"
+                onClick={handleNavClick}
+                className="dropdown-item-custom"
+              >
+                <i className="bi bi-gear dropdown-icon" />
+                <span>Settings</span>
               </NavDropdown.Item>
-              <NavDropdown.Item onClick={handleLogout}>
-                Logout
+
+              <NavDropdown.Divider />
+
+              {/* Logout */}
+              <NavDropdown.Item 
+                onClick={handleLogout}
+                className="dropdown-item-custom logout-item"
+              >
+                <i className="bi bi-box-arrow-right dropdown-icon" />
+                <span>Logout</span>
               </NavDropdown.Item>
             </NavDropdown>
           </Nav>

@@ -1,41 +1,556 @@
+/* ========================================
+   REGISTRATION PAGE - FULLY RESPONSIVE
+   ======================================== */
+
 /* Registration Page Container */
 .registration-page {
   min-height: 100vh;
-  background-color: #0f1118;
+  background: linear-gradient(135deg, #0f1118 0%, #1a1d2e 100%);
   display: flex;
   align-items: center;
-  padding-top: 2rem;
-  padding-bottom: 2rem;
+  padding: 2rem 0;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Animated background effect */
+.registration-page::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.1) 0%, transparent 70%);
+  animation: float 20s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes float {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(20%, -20%) scale(1.1); }
+}
+
+.registration-container {
+  max-width: 1200px;
+  position: relative;
+  z-index: 1;
+}
+
+/* ========================================
+   WELCOME SECTION - LEFT SIDE
+   ======================================== */
+
+.registration-welcome-section {
+  padding: 2rem;
+  animation: slideInLeft 0.8s ease-out;
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Welcome Badge */
+.registration-page .welcome-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: rgba(139, 92, 246, 0.15);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 50px;
+  margin-bottom: 1.5rem;
+  animation: fadeInDown 0.6s ease-out;
+}
+
+.registration-page .badge-icon {
+  font-size: 1.2rem;
+  animation: party-pop 2s ease-in-out infinite;
+}
+
+@keyframes party-pop {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  25% { transform: scale(1.2) rotate(-10deg); }
+  75% { transform: scale(1.2) rotate(10deg); }
+}
+
+.registration-page .badge-text {
+  color: #a78bfa;
+  font-weight: 600;
+  font-size: 0.9rem;
 }
 
 /* Welcome Title */
 .registration-welcome-title {
   font-size: 3.5rem;
-  font-weight: bold;
+  font-weight: 800;
   margin-bottom: 1.5rem;
+  color: #fff;
+  line-height: 1.2;
+  animation: fadeInUp 0.8s ease-out 0.2s both;
+}
+
+.registration-welcome-title .brand-highlight {
   color: #8b5cf6;
+  position: relative;
+  display: inline-block;
+}
+
+.registration-welcome-title .brand-highlight::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(90deg, #8b5cf6, #a78bfa);
+  animation: underline-grow 1s ease-out 0.5s both;
+}
+
+@keyframes underline-grow {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+.registration-welcome-title .title-decoration {
+  color: #8b5cf6;
+  display: inline-block;
+  animation: bounce-decoration 2s ease-in-out infinite;
+}
+
+@keyframes bounce-decoration {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
 }
 
 /* Welcome Subtitle */
 .registration-welcome-subtitle {
-  font-size: 1.25rem;
-  color: rgba(255, 255, 255, 0.5);
-  margin-bottom: 1rem;
+  font-size: 1.35rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+  animation: fadeInUp 0.8s ease-out 0.4s both;
+}
+
+.registration-welcome-subtitle .subtitle-highlight {
+  color: #a78bfa;
+  font-weight: 600;
 }
 
 /* Welcome Text */
 .registration-welcome-text {
-  color: rgba(255, 255, 255, 0.5);
-  margin-bottom: 1.5rem;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 1.1rem;
+  margin-bottom: 2rem;
+  line-height: 1.7;
+  animation: fadeInUp 0.8s ease-out 0.5s both;
 }
 
-/* Sign In Link */
-.registration-signin-link {
-  color: #8b5cf6;
-  text-decoration: none;
+/* CTA Section */
+.registration-cta-section {
+  margin-top: 2.5rem;
+  animation: fadeInUp 0.8s ease-out 0.6s both;
 }
 
-/* Sign In Text Wrapper */
 .registration-signin-text {
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+  font-weight: 500;
+}
+
+/* Sign In Link - SUPER NOTICEABLE VERSION */
+.registration-signin-link {
+  color: #fff;
+  text-decoration: none;
+  font-weight: 700;
+  padding: 0.75rem 1.5rem;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #8b5cf6, #a78bfa);
+  display: inline-block;
+  position: relative;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.4);
+  animation: bounce-glow 2s ease-in-out infinite;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 0.95rem;
+}
+
+.registration-signin-link:hover {
+  color: #fff;
+  background: linear-gradient(135deg, #7c3aed, #8b5cf6);
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 8px 30px rgba(139, 92, 246, 0.6);
+  animation: none;
+}
+
+.registration-signin-link:active {
+  transform: translateY(-1px) scale(1.02);
+}
+
+/* Bounce and Glow Animation */
+@keyframes bounce-glow {
+  0%, 100% {
+    transform: translateY(0);
+    box-shadow: 0 4px 20px rgba(139, 92, 246, 0.4);
+  }
+  50% {
+    transform: translateY(-6px);
+    box-shadow: 0 10px 35px rgba(139, 92, 246, 0.7), 0 0 50px rgba(139, 92, 246, 0.4);
+  }
+}
+
+/* Animated Arrow */
+.registration-signin-link::after {
+  content: " →";
+  display: inline-block;
+  transition: transform 0.3s ease;
+  margin-left: 8px;
+  animation: arrow-move 1.5s ease-in-out infinite;
+}
+
+@keyframes arrow-move {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(6px); }
+}
+
+.registration-signin-link:hover::after {
+  animation: none;
+  transform: translateX(10px);
+}
+
+/* Sparkle effect */
+.registration-signin-link::before {
+  content: "🌟";
+  position: absolute;
+  left: -30px;
+  top: 50%;
+  transform: translateY(-50%);
+  animation: sparkle 2s ease-in-out infinite;
+  font-size: 1.2rem;
+}
+
+@keyframes sparkle {
+  0%, 100% {
+    opacity: 0.4;
+    transform: translateY(-50%) scale(0.8) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-50%) scale(1.2) rotate(180deg);
+  }
+}
+
+/* Feature Highlights */
+.registration-page .feature-highlights {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.registration-page .feature-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  color: rgba(255, 255, 255, 0.7);
+  animation: fadeInLeft 0.8s ease-out;
+}
+
+.registration-page .feature-item:nth-child(1) { animation-delay: 0.8s; opacity: 0; animation-fill-mode: both; }
+.registration-page .feature-item:nth-child(2) { animation-delay: 1s; opacity: 0; animation-fill-mode: both; }
+.registration-page .feature-item:nth-child(3) { animation-delay: 1.2s; opacity: 0; animation-fill-mode: both; }
+
+@keyframes fadeInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.registration-page .feature-icon {
+  color: #8b5cf6;
+  font-weight: bold;
+  font-size: 1.2rem;
+}
+
+.registration-page .feature-text {
+  font-size: 1rem;
+}
+
+/* ========================================
+   FORM SECTION - RIGHT SIDE
+   ======================================== */
+
+.registration-form-column {
+  padding: 2rem;
+  animation: slideInRight 0.8s ease-out;
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ========================================
+   RESPONSIVE BREAKPOINTS
+   ======================================== */
+
+/* Large Desktop (1200px+) - Default styles above */
+
+/* Tablet Landscape (992px - 1199px) */
+@media (max-width: 1199px) {
+  .registration-welcome-title {
+    font-size: 3rem;
+  }
+  
+  .registration-welcome-subtitle {
+    font-size: 1.2rem;
+  }
+}
+
+/* Tablet Portrait (768px - 991px) */
+@media (max-width: 991px) {
+  .registration-welcome-title {
+    font-size: 2.5rem;
+  }
+  
+  .registration-welcome-subtitle {
+    font-size: 1.15rem;
+  }
+  
+  .registration-welcome-text {
+    font-size: 1.05rem;
+  }
+  
+  .registration-welcome-section {
+    margin-bottom: 2rem;
+    text-align: center !important;
+  }
+  
+  .registration-page .welcome-badge {
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+/* Mobile Landscape & Small Tablet (576px - 767px) */
+@media (max-width: 767px) {
+  .registration-page {
+    padding: 1.5rem 0;
+  }
+  
+  .registration-welcome-title {
+    font-size: 2.2rem;
+  }
+  
+  .registration-welcome-subtitle {
+    font-size: 1.05rem;
+  }
+  
+  .registration-welcome-text {
+    font-size: 1rem;
+  }
+  
+  .registration-welcome-section,
+  .registration-form-column {
+    padding: 1.5rem;
+  }
+  
+  .registration-signin-link {
+    font-size: 0.9rem;
+    padding: 0.65rem 1.3rem;
+  }
+  
+  .registration-signin-link::before {
+    left: -25px;
+    font-size: 1rem;
+  }
+}
+
+/* Mobile Portrait (up to 575px) */
+@media (max-width: 575px) {
+  .registration-page {
+    padding: 1rem 0;
+  }
+  
+  .registration-container {
+    padding: 0 0.75rem;
+  }
+  
+  .registration-welcome-section {
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .registration-form-column {
+    padding: 1rem;
+  }
+  
+  .registration-welcome-title {
+    font-size: 1.8rem;
+    margin-bottom: 1rem;
+  }
+  
+  .registration-welcome-title .brand-highlight::after {
+    height: 2px;
+  }
+  
+  .registration-welcome-subtitle {
+    font-size: 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  .registration-welcome-text {
+    font-size: 0.95rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .registration-signin-text {
+    font-size: 1rem;
+  }
+  
+  .registration-signin-link {
+    font-size: 0.85rem;
+    padding: 0.6rem 1.1rem;
+    letter-spacing: 0.5px;
+  }
+  
+  .registration-signin-link::before {
+    left: -22px;
+    font-size: 0.9rem;
+  }
+  
+  .registration-signin-link::after {
+    margin-left: 6px;
+  }
+  
+  .registration-page .welcome-badge {
+    padding: 0.4rem 0.8rem;
+    margin-bottom: 1rem;
+  }
+  
+  .registration-page .badge-text {
+    font-size: 0.85rem;
+  }
+  
+  .registration-page .badge-icon {
+    font-size: 1rem;
+  }
+}
+
+/* Extra Small Mobile (up to 380px) */
+@media (max-width: 380px) {
+  .registration-welcome-title {
+    font-size: 1.6rem;
+  }
+  
+  .registration-welcome-subtitle {
+    font-size: 0.95rem;
+  }
+  
+  .registration-welcome-text {
+    font-size: 0.9rem;
+  }
+  
+  .registration-signin-link {
+    font-size: 0.8rem;
+    padding: 0.55rem 1rem;
+  }
+  
+  .registration-signin-link::before {
+    display: none; /* Hide sparkle on very small screens */
+  }
+}
+
+/* Landscape orientation adjustments for phones */
+@media (max-height: 600px) and (orientation: landscape) {
+  .registration-page {
+    padding: 1rem 0;
+  }
+  
+  .registration-welcome-section {
+    padding: 1rem;
+  }
+  
+  .registration-welcome-title {
+    font-size: 1.8rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  .registration-welcome-subtitle {
+    margin-bottom: 0.75rem;
+  }
+  
+  .registration-welcome-text {
+    margin-bottom: 1rem;
+  }
+  
+  .registration-cta-section {
+    margin-top: 1.5rem;
+  }
+  
+  .registration-page .welcome-badge {
+    margin-bottom: 1rem;
+  }
+}
+
+/* High DPI / Retina displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .registration-welcome-title,
+  .registration-signin-link {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

@@ -6,24 +6,117 @@
   border: 1px solid #2d3348;
   max-width: 500px;
   margin: 0 auto;
+  width: 100%;
+}
+
+/* Mobile Responsive Adjustments */
+@media (max-width: 576px) {
+  .registration-form-container {
+    padding: 1rem;
+    border-radius: 0.5rem;
+    margin: 0 0.5rem;
+    max-width: calc(100% - 1rem);
+  }
 }
 
 /* Form Labels */
 .registration-form-container .form-label {
   color: white;
   font-weight: normal;
+  font-size: 14px;
+}
+
+@media (max-width: 576px) {
+  .registration-form-container .form-label {
+    font-size: 13px;
+  }
 }
 
 /* Form Controls (Input Fields) */
 .registration-form-container .form-control {
-  padding: 0.5rem;
+  padding: 0.75rem;
   background-color: #1e2235;
   border: 1px solid #2d3348;
   color: #fff;
   border-radius: 6px;
-  transition: all 0.3s ease;
+  font-size: 16px; /* Prevents zoom on iOS */
+  transition: all 0.2s ease;
 }
 
+@media (max-width: 576px) {
+  .registration-form-container .form-control {
+    padding: 0.65rem;
+  }
+}
+
+/* Password Input with Toggle Button */
+.registration-form-container .password-input {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right: none;
+}
+
+/* Password Toggle Button */
+.registration-form-container .password-toggle-btn {
+  background-color: #1e2235 !important;
+  border: 1px solid #2d3348 !important;
+  border-left: none !important;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  color: #8e8e93 !important;
+  padding: 0.5rem 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.registration-form-container .password-toggle-btn:hover:not(:disabled) {
+  background-color: #252a3d !important;
+  color: #fff !important;
+  border-color: #2d3348 !important;
+}
+
+.registration-form-container .password-toggle-btn:active:not(:disabled),
+.registration-form-container .password-toggle-btn:focus {
+  background-color: #252a3d !important;
+  color: #fff !important;
+  border-color: #2d3348 !important;
+  box-shadow: none !important;
+}
+
+.registration-form-container .password-toggle-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.registration-form-container .password-toggle-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+@media (max-width: 576px) {
+  .registration-form-container .password-toggle-btn {
+    padding: 0.5rem 0.6rem;
+  }
+  
+  .registration-form-container .password-toggle-btn svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+/* Input Group Focus State */
+.registration-form-container .input-group:focus-within .password-input {
+  border-color: #8b5cf6;
+  box-shadow: none;
+}
+
+.registration-form-container .input-group:focus-within .password-toggle-btn {
+  border-color: #8b5cf6 !important;
+}
+
+/* Focus States */
 .registration-form-container .form-control:focus {
   background-color: #1e2235;
   border-color: #8b5cf6;
@@ -41,12 +134,42 @@
 /* Form Text Helper */
 .registration-form-container .form-text {
   font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+@media (max-width: 576px) {
+  .registration-form-container .form-text {
+    font-size: 11px;
+  }
+}
+
+/* Checkbox Styling */
+.registration-form-container .form-check-input {
+  background-color: #1e2235;
+  border-color: #2d3348;
+  cursor: pointer;
+}
+
+.registration-form-container .form-check-input:checked {
+  background-color: #8b5cf6;
+  border-color: #8b5cf6;
+}
+
+.registration-form-container .form-check-input:focus {
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 0.2rem rgba(139, 92, 246, 0.25);
 }
 
 /* Terms Checkbox Label */
 .registration-terms-label {
   color: white;
   font-size: 14px;
+}
+
+@media (max-width: 576px) {
+  .registration-terms-label {
+    font-size: 13px;
+  }
 }
 
 /* Terms Link */
@@ -67,6 +190,13 @@
   border-radius: 6px;
 }
 
+@media (max-width: 576px) {
+  .registration-error-alert {
+    padding: 0.65rem;
+    font-size: 13px;
+  }
+}
+
 /* Register Button */
 .registration-submit-btn {
   padding: 0.75rem;
@@ -74,28 +204,39 @@
   background-color: #8b5cf6;
   border: none;
   border-radius: 6px;
-  transition: all 0.3s ease;
+  font-size: 16px;
+  transition: all 0.2s ease;
 }
 
 .registration-submit-btn:hover:not(:disabled) {
   background-color: #7c3aed;
 }
 
-.registration-submit-btn:disabled {
+.registration-submit-btn:active:not(:disabled) {
   background-color: #6d28d9;
-  opacity: 0.7;
+}
+
+.registration-submit-btn:disabled {
+  opacity: 0.6;
   cursor: not-allowed;
 }
 
+@media (max-width: 576px) {
+  .registration-submit-btn {
+    padding: 0.65rem;
+    font-size: 15px;
+  }
+}
+
 /* Divider Container */
-.position-relative {
-  position: relative;
+.registration-form-container .position-relative {
+  margin-bottom: 1rem;
 }
 
 /* Divider Line */
 .registration-divider {
   border-color: #2d3348;
-  margin: 1rem 0;
+  margin: 0;
 }
 
 /* Divider Text */
@@ -108,32 +249,122 @@
   background-color: #1a1d2e;
   color: #8e8e93;
   font-size: 14px;
+  white-space: nowrap;
 }
 
-/* Social Signup Buttons */
-.social-signup-btn {
+@media (max-width: 576px) {
+  .registration-divider-text {
+    font-size: 12px;
+    padding: 0 0.5rem;
+  }
+}
+
+/* Social Signup Buttons - Reuse social-login-btn from SocialLoginButtons */
+.registration-form-container .social-login-btn {
   padding: 0.75rem;
   background-color: #2d3348;
   border: 1px solid #2d3348;
   color: #fff;
   border-radius: 6px;
-  transition: all 0.3s ease;
+  font-size: 14px;
+  transition: all 0.2s;
+  min-height: 44px; /* Touch-friendly target size */
 }
 
-.social-signup-btn:hover:not(:disabled) {
-  background-color: #363b54;
-  border-color: #363b54;
+.registration-form-container .social-login-btn:hover:not(:disabled) {
+  background-color: #3a4054;
+  border-color: #3a4054;
   color: #fff;
 }
 
-.social-signup-btn:disabled {
-  opacity: 0.5;
+.registration-form-container .social-login-btn:disabled {
+  opacity: 0.6;
   cursor: not-allowed;
+}
+
+@media (max-width: 576px) {
+  .registration-form-container .social-login-btn {
+    padding: 0.6rem 0.5rem;
+    font-size: 13px;
+  }
+  
+  .registration-form-container .social-login-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+/* Very small screens - stack social buttons */
+@media (max-width: 380px) {
+  .registration-form-container .row.g-2 {
+    flex-direction: column;
+  }
+  
+  .registration-form-container .row.g-2 > .col-6 {
+    width: 100%;
+    max-width: 100%;
+  }
 }
 
 /* Spinner styles */
 .spinner-border-sm {
   width: 1rem;
   height: 1rem;
-  border-width: 0.15em;
+  border-width: 0.15rem;
+}
+
+/* Form Validation Feedback */
+.registration-form-container .invalid-feedback {
+  font-size: 13px;
+}
+
+@media (max-width: 576px) {
+  .registration-form-container .invalid-feedback {
+    font-size: 12px;
+  }
+}
+
+/* Row Spacing on Mobile */
+@media (max-width: 767px) {
+  .registration-form-container .row {
+    margin-left: 0;
+    margin-right: 0;
+  }
+  
+  .registration-form-container .row > [class*='col-'] {
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
+
+/* Smooth transitions */
+.registration-form-container .form-control,
+.registration-submit-btn,
+.social-login-btn {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Prevent text selection on buttons during tap */
+.registration-submit-btn,
+.social-login-btn,
+.registration-terms-link,
+.registration-form-container .password-toggle-btn {
+  -webkit-tap-highlight-color: rgba(139, 92, 246, 0.2);
+  user-select: none;
+}
+
+/* Animation for error alert */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.registration-error-alert {
+  animation: slideDown 0.3s ease-out;
 }
