@@ -13,8 +13,7 @@ logger = logging.getLogger(__name__)
 
 # Cache timeout constants
 PROVIDERS_CACHE_TIMEOUT = 300  # 5 minutes
-USER_SOCIAL_ACCOUNTS_CACHE_TIMEOUT = 60  # 1 minute
-
+USER_SOCIAL_ACCOUNTS_CACHE_TIMEOUT = 60  
 
 # ===================================================================================
 # CACHE HELPER FUNCTIONS

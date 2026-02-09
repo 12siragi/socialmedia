@@ -6,7 +6,7 @@ from django.contrib.auth import login
 
 logger = logging.getLogger(__name__)
 
-USER_CACHE_TIMEOUT = 300  # 5 minutes
+USER_CACHE_TIMEOUT = 300  
 
 
 def get_user_by_email_cache_key(email):
