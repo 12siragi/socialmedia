@@ -15,7 +15,7 @@ function Layout({ children }) {
   return (
     <Context.Provider value={{ toaster, setToaster }}>
       <Navigationbar />
-      <div className="container m-5">{children}</div>
+      <div className="container my-3 my-md-5 px-2 px-md-3">{children}</div>
     </Context.Provider>
   );
 }
