@@ -7,6 +7,7 @@ import ProtectedRoute from "./routes/ProtectedRoute";
 // ✅ Eager load auth-related pages (small, needed immediately)
 import Login from "./pages/Login";
 import Registration from "./pages/Registration";
+import AccountSettings from "./pages/AccountSettings";
 
 // ✅ Lazy load everything else
 const Home = lazy(() => import("./pages/Home"));
@@ -50,6 +51,7 @@ function App() {
           <Route path="/forgot-password/" element={<ForgotPassword />} />
           <Route path="/reset-password/" element={<ResetPassword />} />
           <Route path="/reset-password-failed/" element={<ResetPasswordFailed />} />
+          
 
           {/* PROTECTED ROUTES */}
           <Route
@@ -57,6 +59,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Home />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings/"
+            element={
+              <ProtectedRoute>
+                <AccountSettings />
               </ProtectedRoute>
             }
           />
