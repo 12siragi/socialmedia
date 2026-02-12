@@ -1,8 +1,6 @@
 // components/modals/EditProfileModal.jsx
 import React, { useState, useRef } from 'react';
 import { Modal, Button, Form, Alert } from 'react-bootstrap';
-import useUserActions from '../../hooks/user.actions';
-import './ProfileModals.css';
 
 function EditProfileModal({ show, onClose, onSuccess }) {
   const { getUser, updateProfile } = useUserActions();
