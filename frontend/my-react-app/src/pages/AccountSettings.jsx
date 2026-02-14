@@ -10,7 +10,7 @@ import ChangeEmailModal from '../components/modals/ChangeEmailModal';
 import DeleteAccountModal from '../components/modals/DeleteAccountModal';
 import '../components/css/AccountSettings.css';
 
-
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL  || import.meta.env.VITE_API_URL;
 function AccountSettings() {
   const navigate = useNavigate();
   const { getAccountSettings, getConnectedAccountsDetailed, logout } = useUserActions();

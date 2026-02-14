@@ -379,6 +379,7 @@ class AccountSettingsAPIView(APIView):
             "is_oauth_user": user.is_oauth_user,
             "date_joined": user.date_joined,
             "full_name": user.full_name,
+            "avatar": user.avatar.url if user.avatar else None,
             "avatar_url": user.avatar_url,
             "first_name": user.first_name,
             "last_name": user.last_name,

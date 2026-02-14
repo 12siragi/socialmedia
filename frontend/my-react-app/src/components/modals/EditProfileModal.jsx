@@ -4,6 +4,8 @@ import { Modal, Button, Form, Alert } from 'react-bootstrap';
 import useUserActions from '../../hooks/user.actions';
 import '../css/ProfileModals.css';
 
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL  || import.meta.env.VITE_API_URL;
+
 function EditProfileModal({ show, onClose, onSuccess }) {
   const { getUser, updateProfile } = useUserActions();
   const user = getUser();
