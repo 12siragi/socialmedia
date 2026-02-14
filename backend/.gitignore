@@ -20,3 +20,14 @@ media/
 # Frontend
 node_modules/
 dist/
+uploads/
+media/
+*.jpg
+*.png
+
+# Django migrations
+**/migrations/*
+!**/migrations/__init__.py
+
+
+node_modules/
