@@ -1,4 +1,4 @@
-// pages/AccountSettings.jsx
+// pages/AccountSettings.jsx - FIXED VERSION (Media URL)
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Image } from 'react-bootstrap';
@@ -9,6 +9,7 @@ import ChangePasswordModal from '../components/modals/ChangePasswordModal';
 import ChangeEmailModal from '../components/modals/ChangeEmailModal';
 import DeleteAccountModal from '../components/modals/DeleteAccountModal';
 import '../components/css/AccountSettings.css';
+
 
 function AccountSettings() {
   const navigate = useNavigate();
@@ -25,6 +26,16 @@ function AccountSettings() {
   const [showChangeEmail, setShowChangeEmail] = useState(false);
   const [showDeleteAccount, setShowDeleteAccount] = useState(false);
 
+  // ✅ Error handler helper
+  const handleApiError = (error, defaultMessage) => {
+    if (error.response) {
+      return error.response.data?.detail || defaultMessage;
+    } else if (error.request) {
+      return 'Network error. Please check your connection.';
+    }
+    return defaultMessage;
+  };
+
   // Load account settings
   useEffect(() => {
     loadSettings();
@@ -33,16 +44,19 @@ function AccountSettings() {
   const loadSettings = async () => {
     try {
       setLoading(true);
+      setError(null);
+      
       const [settingsData, accountsData] = await Promise.all([
         getAccountSettings(),
         getConnectedAccountsDetailed(),
       ]);
       
       setSettings(settingsData);
-      setConnectedAccounts(accountsData.accounts || []);
+      setConnectedAccounts(accountsData.social_accounts || []);
     } catch (err) {
       console.error('Failed to load settings:', err);
-      setError('Failed to load account settings');
+      const errorMessage = handleApiError(err, 'Failed to load account settings');
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -74,6 +88,34 @@ function AccountSettings() {
     if (settings?.last_name) return settings.last_name;
     const nameParts = settings?.full_name?.split(' ') || [];
     return nameParts.slice(1).join(' ') || '';
+  };
+
+  // ✅ FIXED: Get avatar URL with proper backend URL
+  const getAvatarUrl = () => {
+    // 1. If uploaded avatar exists, use it
+    if (settings?.avatar) {
+      // Check if it's already a full URL
+      if (settings.avatar.startsWith('http')) {
+        return settings.avatar;
+      }
+      // ✅ Prepend BACKEND_URL for relative paths
+      return `${BACKEND_URL}${settings.avatar}`;
+    }
+    
+    // 2. If cached avatar_url exists (from backend), use it
+    if (settings?.avatar_url) {
+      // Check if it's already a full URL
+      if (settings.avatar_url.startsWith('http')) {
+        return settings.avatar_url;
+      }
+      // ✅ Prepend BACKEND_URL for relative paths
+      return `${BACKEND_URL}${settings.avatar_url}`;
+    }
+    
+    // 3. Fallback to ui-avatars.com
+    const firstName = getFirstName();
+    const lastName = getLastName();
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(firstName)}+${encodeURIComponent(lastName)}&background=8b5cf6&color=fff&bold=true`;
   };
 
   if (loading) {
@@ -125,12 +167,16 @@ function AccountSettings() {
                 <div className="account-settings-profile-display">
                   <div className="user-avatar-wrapper">
                     <Image
-                      src={`https://ui-avatars.com/api/?name=${getFirstName()}+${getLastName()}&background=8b5cf6&color=fff&bold=true`}
+                      src={getAvatarUrl()}
                       roundedCircle
-                      width={40}
-                      height={40}
+                      width={80}
+                      height={80}
                       alt="User avatar"
                       className="user-avatar"
+                      onError={(e) => {
+                        // Fallback if image fails to load
+                        e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(getFirstName())}+${encodeURIComponent(getLastName())}&background=8b5cf6&color=fff&bold=true`;
+                      }}
                     />
                     <span className="online-indicator" />
                   </div>
@@ -208,8 +254,11 @@ function AccountSettings() {
                   <p style={{ color: '#8e8e93' }}>No social accounts connected</p>
                 ) : (
                   <div className="account-settings-connected-list">
-                    {connectedAccounts.map((account) => (
-                      <div key={account.provider} className="account-settings-connected-item">
+                    {connectedAccounts.map((account, index) => (
+                      <div 
+                        key={`${account.provider}-${index}`} 
+                        className="account-settings-connected-item"
+                      >
                         <div className="account-settings-account-icon">
                           {account.provider === 'google-oauth2' && '🔵'}
                           {account.provider === 'github' && '⚫'}

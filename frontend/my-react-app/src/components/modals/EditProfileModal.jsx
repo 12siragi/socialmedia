@@ -1,53 +1,52 @@
-// components/modals/EditProfileModal.jsx
+// components/modals/EditProfileModal.jsx - FINAL FIX
 import React, { useState, useRef, useEffect } from 'react';
 import { Modal, Button, Form, Alert } from 'react-bootstrap';
 import useUserActions from '../../hooks/user.actions';
 import '../css/ProfileModals.css';
 
 function EditProfileModal({ show, onClose, onSuccess }) {
-  const { getUser, updateProfile, getAccountSettings } = useUserActions();
+  const { getUser, updateProfile } = useUserActions();
   const user = getUser();
   
-  const [firstName, setFirstName] = useState(user?.first_name || '');
-  const [lastName, setLastName] = useState(user?.last_name || '');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [avatar, setAvatar] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState(null);
-  const [currentAvatarUrl, setCurrentAvatarUrl] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   
   const fileInputRef = useRef(null);
 
-  // Load current avatar on mount
+  // ✅ FIXED: Use user from AuthContext directly
   useEffect(() => {
-    if (show) {
-      // Reset form when modal opens
-      setFirstName(user?.first_name || '');
-      setLastName(user?.last_name || '');
+    if (show && user) {
+      setFirstName(user.first_name || '');
+      setLastName(user.last_name || '');
       setAvatarPreview(null);
       setAvatar(null);
-      
-      // Try to get avatar_url from account settings
-      getAccountSettings().then(settings => {
-        setCurrentAvatarUrl(settings.avatar_url);
-      }).catch(() => {
-        // Fallback to user.avatar if available
-        setCurrentAvatarUrl(user?.avatar);
-      });
     }
-  }, [show]);
+  }, [show, user]);
+
+  // ✅ FIXED: Get current avatar from user object
+  const getCurrentAvatarUrl = () => {
+    if (user?.avatar) {
+      return user.avatar.startsWith('http') ? user.avatar : `${BACKEND_URL}${user.avatar}`;
+    }
+    if (user?.avatar_url) {
+      return user.avatar_url.startsWith('http') ? user.avatar_url : `${BACKEND_URL}${user.avatar_url}`;
+    }
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.first_name || 'User')}+${encodeURIComponent(user?.last_name || '')}&background=8b5cf6&color=fff&bold=true`;
+  };
 
   const handleAvatarChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file size (5MB)
     if (file.size > 5 * 1024 * 1024) {
       setError('Avatar file size cannot exceed 5MB');
       return;
     }
 
-    // Validate file type
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     if (!allowedTypes.includes(file.type)) {
       setError('Only JPEG, PNG, and WebP images are allowed');
@@ -90,7 +89,6 @@ function EditProfileModal({ show, onClose, onSuccess }) {
 
       await updateProfile(data);
       
-      // Clear preview after successful upload
       setAvatarPreview(null);
       setAvatar(null);
       
@@ -108,22 +106,14 @@ function EditProfileModal({ show, onClose, onSuccess }) {
       setError(null);
       setAvatarPreview(null);
       setAvatar(null);
-      setFirstName(user?.first_name || '');
-      setLastName(user?.last_name || '');
       onClose();
     }
   };
 
-  // Get the display avatar URL
-  const displayAvatarUrl = avatarPreview || currentAvatarUrl || user?.avatar;
+  const displayAvatarUrl = avatarPreview || getCurrentAvatarUrl();
 
   return (
-    <Modal 
-      show={show} 
-      onHide={handleClose} 
-      centered 
-      className="profile-edit-modal"
-    >
+    <Modal show={show} onHide={handleClose} centered className="profile-edit-modal">
       <Modal.Header closeButton>
         <Modal.Title>Edit Profile</Modal.Title>
       </Modal.Header>
@@ -132,7 +122,6 @@ function EditProfileModal({ show, onClose, onSuccess }) {
         {error && <Alert variant="danger">{error}</Alert>}
         
         <Form onSubmit={handleSubmit}>
-          {/* Avatar Upload */}
           <div className="profile-edit-avatar-section">
             <div className="profile-edit-avatar-preview">
               <img 
@@ -140,8 +129,7 @@ function EditProfileModal({ show, onClose, onSuccess }) {
                 alt="Profile"
                 className="profile-edit-avatar-img"
                 onError={(e) => {
-                  // Fallback to default avatar if image fails to load
-                  e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.full_name || 'User')}&background=8b5cf6&color=fff&bold=true`;
+                  e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.first_name || 'User')}+${encodeURIComponent(user?.last_name || '')}&background=8b5cf6&color=fff&bold=true`;
                 }}
               />
             </div>
@@ -177,14 +165,12 @@ function EditProfileModal({ show, onClose, onSuccess }) {
             </div>
           </div>
 
-          {/* Name Fields */}
           <Form.Group className="mb-3">
             <Form.Label>First Name</Form.Label>
             <Form.Control
               type="text"
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
-              placeholder="Enter first name"
               required
               disabled={loading}
             />
@@ -196,7 +182,6 @@ function EditProfileModal({ show, onClose, onSuccess }) {
               type="text"
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
-              placeholder="Enter last name"
               required
               disabled={loading}
             />
@@ -208,11 +193,7 @@ function EditProfileModal({ show, onClose, onSuccess }) {
         <Button variant="secondary" onClick={handleClose} disabled={loading}>
           Cancel
         </Button>
-        <Button 
-          variant="primary" 
-          onClick={handleSubmit}
-          disabled={loading}
-        >
+        <Button variant="primary" onClick={handleSubmit} disabled={loading}>
           {loading ? (
             <>
               <span className="spinner-border spinner-border-sm me-2" />

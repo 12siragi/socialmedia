@@ -1,10 +1,11 @@
-// src/components/Navbar.jsx
+// src/components/Navbar.jsx - FIXED VERSION (Media URL)
 import React, { memo, useState } from "react";
 import { Navbar, Container, Image, NavDropdown, Nav } from "react-bootstrap";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { useAuth } from "./contexts/AuthContext";
 import { authManager } from "./helpers/authManager";
 import "./css/Navbar.css";
+
 
 function Navigationbar() {
   const navigate = useNavigate();
@@ -26,6 +27,34 @@ function Navigationbar() {
   const isActiveRoute = (path) => {
     return location.pathname === path;
   };
+
+  // ✅ FIXED: Proper avatar URL with backend URL
+  const getAvatarUrl = () => {
+    // 1. Check if user has uploaded avatar
+    if (user?.avatar) {
+      // If it's already a full URL, use it
+      if (user.avatar.startsWith('http')) {
+        return user.avatar;
+      }
+      // ✅ Prepend BACKEND_URL for relative paths
+      return `${BACKEND_URL}${user.avatar}`;
+    }
+    
+    // 2. Check if user has avatar_url (cached)
+    if (user?.avatar_url) {
+      // If it's already a full URL, use it
+      if (user.avatar_url.startsWith('http')) {
+        return user.avatar_url;
+      }
+      // ✅ Prepend BACKEND_URL for relative paths
+      return `${BACKEND_URL}${user.avatar_url}`;
+    }
+    
+    // 3. Fallback to ui-avatars.com
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.first_name || 'User')}+${encodeURIComponent(user?.last_name || '')}&background=8b5cf6&color=fff&bold=true`;
+  };
+
+  const avatarUrl = getAvatarUrl();
 
   // ✅ Show navbar skeleton for unauthenticated users
   if (!isAuthenticated) {
@@ -106,12 +135,16 @@ function Navigationbar() {
               title={
                 <div className="user-avatar-wrapper">
                   <Image
-                    src={`https://ui-avatars.com/api/?name=${user?.first_name}+${user?.last_name}&background=8b5cf6&color=fff&bold=true`}
+                    src={avatarUrl}
                     roundedCircle
                     width={40}
                     height={40}
                     alt="User avatar"
                     className="user-avatar"
+                    onError={(e) => {
+                      // Fallback if image fails to load
+                      e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.first_name || 'User')}+${encodeURIComponent(user?.last_name || '')}&background=8b5cf6&color=fff&bold=true`;
+                    }}
                   />
                   <span className="online-indicator" />
                 </div>

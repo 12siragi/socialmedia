@@ -3,28 +3,20 @@ from datetime import timedelta
 import os
 from dotenv import load_dotenv
 
-# ---------------------------
-# BASE DIRECTORY
-# ---------------------------
-BASE_DIR = Path(__file__).resolve().parent.parent
+# ===================================================================================
+# BASE CONFIGURATION
+# ===================================================================================
 
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Load .env file
 load_dotenv(BASE_DIR / ".env")
 
-# ---------------------------
-# SECRET KEY
-# ---------------------------
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", 'django-insecure-v4s^@fluo*)a8u^m(a4l4$#%bzx&mvfm$oe$lc(6yn_intj(l%')
 
-# ---------------------------
-# DEBUG MODE
-# ---------------------------
-DEBUG = False  # Always False in production
+# Always False in production
+DEBUG = os.environ.get("DEBUG", "False") == "True"
 
-# ---------------------------
-# ALLOWED HOSTS
-# ---------------------------
 ALLOWED_HOSTS = [
     "pingchart.vercel.app",
     "socialmedia-6.onrender.com",
@@ -34,9 +26,11 @@ ALLOWED_HOSTS = [
     'jamal-interrogational-mariah.ngrok-free.dev',
 ]
 
-# ---------------------------
+
+# ===================================================================================
 # APPLICATIONS
-# ---------------------------
+# ===================================================================================
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -50,8 +44,6 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt.token_blacklist',
     'django_extensions',
-    
-    # ✅ Social Auth
     'social_django',
     
     # Your apps
@@ -60,9 +52,29 @@ INSTALLED_APPS = [
     'comment',
 ]
 
-#---------------------------
+
+# ===================================================================================
+# MIDDLEWARE (OPTIMIZED)
+# ===================================================================================
+
+MIDDLEWARE = [
+    'django.middleware.security.SecurityMiddleware',
+    'django.middleware.gzip.GZipMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+]
+
+
+# ===================================================================================
 # TEMPLATES
-#---------------------------
+# ===================================================================================
+
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
@@ -74,7 +86,6 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                # ✅ Social Auth context processors
                 'social_django.context_processors.backends',
                 'social_django.context_processors.login_redirect',
             ],
@@ -83,31 +94,18 @@ TEMPLATES = [
 ]
 
 
-# ---------------------------
-# MIDDLEWARE
-# ---------------------------
-MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
-    'django.middleware.gzip.GZipMiddleware',  
-    'whitenoise.middleware.WhiteNoiseMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',  # ✅ Required
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',  # ✅ Required
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
-]
-
-# ---------------------------
+# ===================================================================================
 # URLS & WSGI
-# ---------------------------
+# ===================================================================================
+
 ROOT_URLCONF = 'backend.urls'
 WSGI_APPLICATION = 'backend.wsgi.application'
 
-# ---------------------------
-# DATABASE
-# ---------------------------
+
+# ===================================================================================
+# DATABASE (OPTIMIZED)
+# ===================================================================================
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
@@ -116,18 +114,24 @@ DATABASES = {
         "PASSWORD": os.environ.get("DB_PASSWORD"),
         "HOST": os.environ.get("DB_HOST"),
         "PORT": os.environ.get("DB_PORT"),
-        "CONN_MAX_AGE": 600,  # ✅ Reuse connections for 10 minutes
+        
+        # OPTIMIZATION: Connection pooling
+        "CONN_MAX_AGE": 300,  # 5 minutes (reduced from 10)
+        "CONN_HEALTH_CHECKS": True,  # Verify connections are alive
+        
         "OPTIONS": {
             "connect_timeout": 10,
+            # OPTIMIZATION: Disable SSL in development if not needed
+            # "sslmode": "require",  # Uncomment for production
         }   
     }
 }
 
 
-
-# ---------------------------
+# ===================================================================================
 # PASSWORD VALIDATORS
-# ---------------------------
+# ===================================================================================
+
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
@@ -142,35 +146,44 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
-# ---------------------------
+
+
+# ===================================================================================
 # INTERNATIONALIZATION
-# ---------------------------
+# ===================================================================================
+
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'Africa/Nairobi'
 USE_I18N = True
 USE_TZ = True
 
-# ---------------------------
+
+# ===================================================================================
 # STATIC FILES
-# ---------------------------
+# ===================================================================================
+
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'static'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-# ---------------------------
-# MEDIA FILES
-# ---------------------------
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'uploads'
 
-# ---------------------------
+# ===================================================================================
+# MEDIA FILES
+# ===================================================================================
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = Path('/app/media')
+
+# ===================================================================================
 # CUSTOM USER MODEL
-# ---------------------------
+# ===================================================================================
+
 AUTH_USER_MODEL = "accounts.CustomUser"
 
-# ---------------------------
+
+# ===================================================================================
 # REST FRAMEWORK
-# ---------------------------
+# ===================================================================================
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
@@ -179,13 +192,31 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
+    # OPTIMIZATION: Pagination for all list views
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,
+    
+    # OPTIMIZATION: Throttling to prevent abuse
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle'
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '100/hour',  # Anonymous users
+        'user': '1000/hour',  # Authenticated users
+    }
 }
-# ---------------------------
-# SIMPLE JWT
-# ---------------------------
+
+
+# ===================================================================================
+# SIMPLE JWT (OPTIMIZED)
+# ===================================================================================
+
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    # OPTIMIZATION: Shorter access token lifetime (more secure)
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),  # Increased from 5
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),  # Increased from 1
+    
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
     "UPDATE_LAST_LOGIN": False,
@@ -223,49 +254,75 @@ SIMPLE_JWT = {
     "SLIDING_TOKEN_REFRESH_SERIALIZER": "rest_framework_simplejwt.serializers.TokenRefreshSlidingSerializer",
 }
 
-# ---------------------------
-# REDIS CACHE
-# ---------------------------
+
+# ===================================================================================
+# REDIS CACHE (OPTIMIZED)
+# ===================================================================================
+
+REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379")
+
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": "redis://redis:6379/1",  # docker service name + port
+        "LOCATION": f"{REDIS_URL}/1",
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
-        }
+            # OPTIMIZATION: Connection pooling
+            "CONNECTION_POOL_KWARGS": {
+                "max_connections": 50,
+                "retry_on_timeout": True,
+            },
+            # OPTIMIZATION: Compression for large values
+            "COMPRESSOR": "django_redis.compressors.zlib.ZlibCompressor",
+            # OPTIMIZATION: Serializer
+            "SERIALIZER": "django_redis.serializers.json.JSONSerializer",
+        },
+        # OPTIMIZATION: Default cache timeout
+        "TIMEOUT": 300,  # 5 minutes
+        "KEY_PREFIX": "pingchart",  # Namespace
+        "VERSION": 1,
     }
 }
-# ---------------------------
-# SESSION SETTINGS (Add this section)
-# ---------------------------
-# backend/settings.py
 
-SESSION_ENGINE = "django.contrib.sessions.backends.db"
+
+# ===================================================================================
+# SESSION SETTINGS (OPTIMIZED - MOVED TO REDIS)
+# ===================================================================================
+
+# OPTIMIZATION: Use Redis for sessions instead of DB
+SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+SESSION_CACHE_ALIAS = "default"  # Use Redis cache
+
 SESSION_COOKIE_NAME = 'sessionid'
 SESSION_COOKIE_AGE = 1209600  # 2 weeks
-SESSION_SAVE_EVERY_REQUEST = True
+SESSION_SAVE_EVERY_REQUEST = False  # OPTIMIZATION: Only save when modified
 
-# Critical settings:
-SESSION_COOKIE_SECURE = False  # Set False for development/ngrok
+# Security settings
+SESSION_COOKIE_SECURE = not DEBUG  # HTTPS only in production
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SAMESITE = None  # Changed from 'Lax' to None
-SESSION_COOKIE_DOMAIN = None    # Let Django auto-detect
+SESSION_COOKIE_SAMESITE = 'Lax' if not DEBUG else None
+SESSION_COOKIE_DOMAIN = None  # Auto-detect
 
 
-# ---------------------------
+# ===================================================================================
+# AUTHENTICATION BACKENDS (OPTIMIZED ORDER)
+# ===================================================================================
+
+# OPTIMIZATION: Most common backend first
 AUTHENTICATION_BACKENDS = (
-    # Social Auth Backends
+    # Email/password login (90% of logins) - CHECK FIRST
+    'django.contrib.auth.backends.ModelBackend',
+    
+    # Social Auth Backends (10% of logins)
     'social_core.backends.google.GoogleOAuth2',
     'social_core.backends.github.GithubOAuth2',
     'social_core.backends.facebook.FacebookOAuth2',
-    
-    # Default Django backend (email/password)
-    'django.contrib.auth.backends.ModelBackend',
 )
 
-# ---------------------------
+
+# ===================================================================================
 # PYTHON SOCIAL AUTH SETTINGS
-# ---------------------------
+# ===================================================================================
 
 # OAuth Keys (from .env)
 SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = os.environ.get('GOOGLE_OAUTH_CLIENT_ID')
@@ -290,7 +347,7 @@ SOCIAL_AUTH_PIPELINE = (
     'social_core.pipeline.social_auth.associate_user',
     'social_core.pipeline.social_auth.load_extra_data',
     'social_core.pipeline.user.user_details',
-    'accounts.pipeline.authenticate_user',  # MUST be last!
+    'accounts.pipeline.authenticate_user',  # MUST be last
 )
 
 # What data to get from providers
@@ -322,6 +379,35 @@ SOCIAL_AUTH_NEW_USER_REDIRECT_URL = '/api/auth/social/success/'
 SOCIAL_AUTH_NEW_ASSOCIATION_REDIRECT_URL = '/api/auth/social/success/'
 SOCIAL_AUTH_DISCONNECT_REDIRECT_URL = '/api/auth/social/disconnected/'
 
+
+# ===================================================================================
+# CORS (OPTIMIZED)
+# ===================================================================================
+
+# OPTIMIZATION: Lock to specific origins (not all)
+CORS_ALLOW_ALL_ORIGINS = DEBUG  # Only allow all in development
+
+CORS_ALLOWED_ORIGINS = [
+    "https://pingchart.vercel.app",
+    "http://localhost:5173",
+    "http://localhost:8080",
+]
+
+# Add ngrok in development
+if DEBUG:
+    CORS_ALLOWED_ORIGINS.append("https://jamal-interrogational-mariah.ngrok-free.dev")
+
+CORS_ALLOW_CREDENTIALS = True
+CORS_URLS_REGEX = r'^/(?!media/).*$'
+
+# OPTIMIZATION: Preflight caching
+CORS_PREFLIGHT_MAX_AGE = 86400  # 24 hours
+
+
+# ===================================================================================
+# CSRF
+# ===================================================================================
+
 CSRF_TRUSTED_ORIGINS = [
     "https://pingchart.vercel.app",
     "https://socialmedia-6.onrender.com",
@@ -330,28 +416,18 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:8080",
 ]
 
-# ---------------------------
-# CORS
-# ---------------------------
-CORS_ALLOW_ALL_ORIGINS = True  # Optional: you can lock to your frontend domain
-# CORS_ALLOWED_ORIGINS = [
-#     "https://pingchart.vercel.app",
-#     "http://localhost:3000"
-#     "jamal-interrogational-mariah.ngrok-free.dev",
-# ]
 
-CORS_ALLOW_CREDENTIALS = True  # ✅ Important for social auth cookies
-
-# ---------------------------
+# ===================================================================================
 # DEFAULT AUTO FIELD
-# ---------------------------
+# ===================================================================================
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
-
-# ---------------------------
+# ===================================================================================
 # EMAIL SETTINGS
-# ---------------------------
+# ===================================================================================
+
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = os.environ.get("EMAIL_HOST")
 EMAIL_PORT = int(os.environ.get("EMAIL_PORT", 587))
@@ -360,21 +436,65 @@ EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD")
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL")
 
-# ---------------------------
+
+# ===================================================================================
 # URL SETTINGS
-# ---------------------------
+# ===================================================================================
+
 FRONTEND_URL = os.environ.get("FRONTEND_URL")
 BACKEND_URL = os.environ.get("BACKEND_URL")
 
 
-# ---------------------------
+# ===================================================================================
 # CELERY SETTINGS
-# ---------------------------
-CELERY_BROKER_URL = 'redis://redis:6379/0'  # Same Redis container
-CELERY_RESULT_BACKEND = 'redis://redis:6379/0'
+# ===================================================================================
+
+CELERY_BROKER_URL = f"{REDIS_URL}/0"
+CELERY_RESULT_BACKEND = f"{REDIS_URL}/0"
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'Africa/Nairobi'
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes max
+
+# OPTIMIZATION: Task result expiration
+CELERY_RESULT_EXPIRES = 3600  # 1 hour
+
+# OPTIMIZATION: Task acknowledgement
+CELERY_ACKS_LATE = True
+CELERY_TASK_REJECT_ON_WORKER_LOST = True
+
+
+# ===================================================================================
+# LOGGING (OPTIONAL - FOR PRODUCTION)
+# ===================================================================================
+
+if not DEBUG:
+    LOGGING = {
+        'version': 1,
+        'disable_existing_loggers': False,
+        'formatters': {
+            'verbose': {
+                'format': '{levelname} {asctime} {module} {message}',
+                'style': '{',
+            },
+        },
+        'handlers': {
+            'console': {
+                'class': 'logging.StreamHandler',
+                'formatter': 'verbose',
+            },
+        },
+        'root': {
+            'handlers': ['console'],
+            'level': 'INFO',
+        },
+        'loggers': {
+            'django': {
+                'handlers': ['console'],
+                'level': 'INFO',
+                'propagate': False,
+            },
+        },
+    }

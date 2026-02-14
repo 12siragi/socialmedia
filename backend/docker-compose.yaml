@@ -41,8 +41,10 @@ services:
              python manage.py collectstatic --noinput &&
              gunicorn backend.wsgi:application --bind 0.0.0.0:8000"
     volumes:
-      - .:/app
-      - static_volume:/app/static
+      # ⚠️ IMPORTANT: Order matters! Named volumes must come AFTER bind mounts
+      - .:/app                      # Bind mount (code)
+      - media_volume:/app/media     # Named volume (overrides /app/media)
+      - static_volume:/app/static   # Named volume (overrides /app/static)
     env_file:
       - .env
     depends_on:
@@ -60,6 +62,7 @@ services:
     command: celery -A backend worker --loglevel=info --concurrency=2
     volumes:
       - .:/app
+      - media_volume:/app/media  # ✅ ADDED: Celery might need to access media
     env_file:
       - .env
     depends_on:
@@ -97,6 +100,7 @@ services:
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - static_volume:/app/static:ro
+      - media_volume:/app/media:ro  # ✅ Share media volume with nginx
     depends_on:
       - socialmedia-backend
     networks:
@@ -105,6 +109,7 @@ services:
 volumes:
   postgres_data:
   static_volume:
+  media_volume:  # ✅ Named volume for media files
   redis_data:
 
 networks:
