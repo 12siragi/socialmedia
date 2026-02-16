@@ -1,12 +1,17 @@
+// src/pages/EmailVerifiedSuccess.jsx
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "react-bootstrap";
+import { authManager } from "../components/helpers/authManager";  // ← ADD THIS
 import "../components/css/EmailVerifiedSuccess.css";
 
 function EmailVerifiedSuccess() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // ← ADD THIS: Clear temp auth since verification is complete
+    authManager.clearTempAuth();
+
     // Auto-redirect to login after 5 seconds
     const timer = setTimeout(() => {
       navigate("/login/");

@@ -11,10 +11,9 @@ import AccountSettings from "./pages/AccountSettings";
 
 // ✅ Lazy load everything else
 const Home = lazy(() => import("./pages/Home"));
-const Profile = lazy(() => import("./pages/Profile"));
-const EditProfile = lazy(() => import("./pages/EditProfile"));
 const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
 const CheckEmail = lazy(() => import("./pages/CheckEmail"));
+const EmailVerifyFailed = lazy(() => import("./pages/EmailVerifyFailed"));
 const EmailVerifiedSuccess = lazy(() => import("./pages/EmailVerifiedSuccess"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
@@ -45,8 +44,9 @@ function App() {
           <Route path="/login/" element={<Login />} />
           <Route path="/register/" element={<Registration />} />
           <Route path="/verify-email-prompt/" element={<CheckEmail />} />
-          <Route path="/email-verify-failed" element={<VerifyEmail />} />
+          <Route path="/email-verify/" element={<VerifyEmail />} />
           <Route path="/email-verified-success/" element={<EmailVerifiedSuccess />} />
+          <Route path="/email-verify-failed/" element={<EmailVerifyFailed />} />
           <Route path="/social-login-success" element={<SocialLoginSuccess />} />
           <Route path="/forgot-password/" element={<ForgotPassword />} />
           <Route path="/reset-password/" element={<ResetPassword />} />
@@ -70,22 +70,7 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/profile/:userId/"
-            element={
-              <ProtectedRoute>
-                <Profile />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/profile/:profileId/edit/"
-            element={
-              <ProtectedRoute>
-                <EditProfile />
-              </ProtectedRoute>
-            }
-          />
+
 
           {/* 404 */}
           <Route

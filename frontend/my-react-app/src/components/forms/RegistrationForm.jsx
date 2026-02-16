@@ -1,11 +1,16 @@
+// src/components/forms/RegistrationForm.jsx
 import React, { useState } from "react";
 import { Form, Button, Row, Col, Spinner, InputGroup } from "react-bootstrap";
+import { Navigate } from "react-router-dom";  // ← ADD THIS
 import useUserActions from "../../hooks/user.actions";
+import { useAuth } from "../contexts/AuthContext";  // ← ADD THIS
 import SocialLoginButtons from "./SocialLoginButtons";
 import "../css/RegistrationForm.css";
 
 function RegistrationForm() {
   const userActions = useUserActions();
+  const { isAuthenticated } = useAuth();  // ← ADD THIS
+  
   const [validated, setValidated] = useState(false);
   const [form, setForm] = useState({
     first_name: "",
@@ -45,10 +50,17 @@ function RegistrationForm() {
     setIsLoading(true);
 
     try {
-      // ✅ This will redirect immediately and process in background
+      // ✅ Your hook handles:
+      // - authManager.setTempAuth()
+      // - navigate to /verify-email-prompt/
+      // - API call
       await userActions.register(form);
-      // User is already on verification page at this point
+      
+      // ✅ User is already on verification page at this point
+      
     } catch (err) {
+      console.error('Registration error:', err);
+      
       // ✅ Only show error if it happens BEFORE redirect
       const apiError = err.response?.data;
       
@@ -64,16 +76,28 @@ function RegistrationForm() {
         errorMessage = Array.isArray(apiError.password1)
           ? apiError.password1[0]
           : apiError.password1;
+      } else if (apiError?.password) {
+        errorMessage = Array.isArray(apiError.password)
+          ? apiError.password[0]
+          : apiError.password;
       } else if (apiError?.non_field_errors) {
         errorMessage = Array.isArray(apiError.non_field_errors)
           ? apiError.non_field_errors[0]
           : apiError.non_field_errors;
+      } else if (err.message) {
+        errorMessage = err.message;
       }
       
       setError(errorMessage);
+    } finally {
       setIsLoading(false);
     }
   };
+
+  // ← ADD THIS: Auto-redirect if already logged in
+  if (isAuthenticated) {
+    return <Navigate to="/" replace />;
+  }
 
   return (
     <div className="registration-form-container">
@@ -162,13 +186,11 @@ function RegistrationForm() {
               tabIndex={-1}
             >
               {showPassword1 ? (
-                // Eye Slash Icon (Hide)
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
                   <line x1="1" y1="1" x2="23" y2="23"/>
                 </svg>
               ) : (
-                // Eye Icon (Show)
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                   <circle cx="12" cy="12" r="3"/>
@@ -207,13 +229,11 @@ function RegistrationForm() {
               tabIndex={-1}
             >
               {showPassword2 ? (
-                // Eye Slash Icon (Hide)
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
                   <line x1="1" y1="1" x2="23" y2="23"/>
                 </svg>
               ) : (
-                // Eye Icon (Show)
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                   <circle cx="12" cy="12" r="3"/>
@@ -237,7 +257,7 @@ function RegistrationForm() {
             label={
               <span className="registration-terms-label">
                 I agree to the{" "}
-                <a href="/terms" className="registration-terms-link">
+                <a href="/terms" className="registration-terms-link" target="_blank" rel="noopener noreferrer">
                   Terms and Conditions
                 </a>
               </span>

@@ -1,14 +1,16 @@
 // src/components/forms/LoginForm.jsx
 import React, { useState, useCallback, memo } from "react";
 import { Form, Button, Alert, InputGroup } from "react-bootstrap";
-import { authManager } from "../helpers/authManager";
-import axiosService from "../helpers/axios";
-import { useNavigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
+import useUserActions from "../../hooks/user.actions";  // ← NEW
+import { useAuth } from "../contexts/AuthContext"; // ← NEW
 import SocialLoginButtons from "./SocialLoginButtons";
 import "../css/LoginForm.css";
 
 function LoginForm() {
-  const navigate = useNavigate();
+  const { login } = useUserActions();  // ← NEW: Get action
+  const { isAuthenticated } = useAuth(); // ← NEW: Get state
+  
   const [validated, setValidated] = useState(false);
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState(null);
@@ -16,7 +18,6 @@ function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // ✅ Memoized to prevent recreation on every keystroke
   const handleSubmit = useCallback(async (event) => {
     event.preventDefault();
     const loginForm = event.currentTarget;
@@ -32,13 +33,17 @@ function LoginForm() {
     setError(null);
 
     try {
-      const res = await axiosService.post(`/api/auth/login/`, {
+      // ← UPDATED: Use login action (handles everything!)
+      await login({
         email: form.email,
         password: form.password,
       });
       
-      authManager.setAuth(res.data); // ✅ Triggers re-render via context
-      navigate("/");
+      // ✅ That's it! No need for:
+      // - authManager.setAuth() (handled by hook)
+      // - navigate() (handled by hook)
+      // - Everything updates automatically!
+      
     } catch (err) {
       setError(
         err.response?.data?.detail || 
@@ -48,7 +53,13 @@ function LoginForm() {
     } finally {
       setIsLoading(false);
     }
-  }, [form.email, form.password, navigate]);
+  }, [form.email, form.password, login]); // ← Add login to dependencies
+
+  // ← NEW: Auto-redirect if already logged in
+  if (isAuthenticated) {
+    return <Navigate to="/" replace />;
+  }
+
 
   return (
     <div className="login-form-container">

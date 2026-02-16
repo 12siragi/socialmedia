@@ -1,21 +1,44 @@
-// src/pages/VerifyEmailPrompt.jsx
-import React, { useState } from "react";
+// src/pages/CheckEmail.jsx (or VerifyEmailPrompt.jsx)
+import React, { useState, useEffect } from "react";
 import { Button } from "react-bootstrap";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import useUserActions from "../hooks/user.actions";
+import { authManager } from "../components/helpers/authManager";
+import { useAuth } from "../components/contexts/AuthContext";
 import "../components/css/VerifyEmailPrompt.css";
 
-function VerifyEmailPrompt() {
+function CheckEmail() {
   const [resendStatus, setResendStatus] = useState(null);
   const [isResending, setIsResending] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+  
   const userActions = useUserActions();
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
 
-  // Get email from localStorage (stored during registration)
-  const authTemp = JSON.parse(localStorage.getItem("auth_temp"));
+  // Get email from authManager (stored during registration)
+  const authTemp = authManager.getTempAuth();
   const email = authTemp?.email;
 
+  // Redirect if already logged in or no email
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate("/");
+    } else if (!email) {
+      navigate("/register/");
+    }
+  }, [isAuthenticated, email, navigate]);
+
+  // Countdown timer for resend button (prevent spam)
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [countdown]);
+
   const handleResend = async () => {
-    if (!email) return;
+    if (!email || countdown > 0) return;
     
     setIsResending(true);
     setResendStatus(null);
@@ -24,12 +47,14 @@ function VerifyEmailPrompt() {
       await userActions.resendVerificationEmail(email);
       setResendStatus({
         type: 'success',
-        message: 'Verification email resent! Check your inbox.'
+        message: '✅ Verification email resent! Check your inbox.'
       });
+      setCountdown(60); // 60 second cooldown
     } catch (error) {
+      console.error('Resend error:', error);
       setResendStatus({
         type: 'error',
-        message: 'Failed to resend email. Try again later.'
+        message: '❌ Failed to resend email. Try again later.'
       });
     } finally {
       setIsResending(false);
@@ -51,14 +76,14 @@ function VerifyEmailPrompt() {
         </svg>
 
         {/* Title */}
-        <h2 className="verify-email-title">Verify Your Email</h2>
+        <h2 className="verify-email-title">Check Your Email</h2>
 
         {/* Description */}
         <p className="verify-email-text">
           {email ? (
             <>
               We've sent a verification link to{" "}
-              <span className="verify-email-address">{email}</span>. Please check your inbox.
+              <span className="verify-email-address">{email}</span>
             </>
           ) : (
             "We've sent a verification email. Please check your inbox."
@@ -71,9 +96,9 @@ function VerifyEmailPrompt() {
 
         {/* Resend Button */}
         <Button 
-          variant="primary" 
+          variant={countdown > 0 ? "outline-secondary" : "primary"}
           onClick={handleResend}
-          disabled={isResending}
+          disabled={isResending || countdown > 0}
           className="verify-email-resend-btn"
         >
           {isResending ? (
@@ -81,6 +106,8 @@ function VerifyEmailPrompt() {
               <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
               Sending...
             </>
+          ) : countdown > 0 ? (
+            `Resend in ${countdown}s`
           ) : (
             "Resend Verification Email"
           )}
@@ -108,4 +135,4 @@ function VerifyEmailPrompt() {
   );
 }
 
-export default VerifyEmailPrompt;
+export default CheckEmail;

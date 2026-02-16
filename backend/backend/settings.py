@@ -391,6 +391,7 @@ CORS_ALLOWED_ORIGINS = [
     "https://pingchart.vercel.app",
     "http://localhost:5173",
     "http://localhost:8080",
+    "https://jamal-interrogational-mariah.ngrok-free.dev"
 ]
 
 # Add ngrok in development
@@ -410,7 +411,7 @@ CORS_PREFLIGHT_MAX_AGE = 86400  # 24 hours
 
 CSRF_TRUSTED_ORIGINS = [
     "https://pingchart.vercel.app",
-    "https://socialmedia-6.onrender.com",
+    "https://jamal-interrogational-mariah.ngrok-free.dev",
     "https://*.ngrok-free.dev",
     "http://localhost:5173",
     "http://localhost:8080",

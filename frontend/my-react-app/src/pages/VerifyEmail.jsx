@@ -1,127 +1,95 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Button, Form, Spinner } from "react-bootstrap";
+// src/pages/VerifyEmail.jsx
+import React, { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Spinner } from "react-bootstrap";
 import useUserActions from "../hooks/user.actions";
-import "../components/css/EmailVerifyFailed.css";
 
-function EmailVerifyFailed() {
+function VerifyEmail() {
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { resendVerificationEmail } = useUserActions();
+  const [status, setStatus] = useState('verifying');
+  
+  const { verifyEmail } = useUserActions();
 
-  const [email, setEmail] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [message, setMessage] = useState(null);
+  useEffect(() => {
+    const handleVerification = async () => {
+      // Step 1: Get token from URL
+      const token = searchParams.get('token');
 
-  const handleResend = async (e) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setMessage(null);
+      // Step 2: No token? Invalid link
+      if (!token) {
+        setStatus('error');
+        setTimeout(() => navigate('/email-verify-failed/'), 2000);
+        return;
+      }
 
-    try {
-      await resendVerificationEmail(email);
-      setMessage({
-        type: 'success',
-        text: '✅ Verification email sent! Check your inbox.'
-      });
-      setEmail("");
-    } catch (error) {
-      const errorMsg =
-        error.response?.data?.detail || "Failed to send email. Please try again.";
-      setMessage({
-        type: 'error',
-        text: `❌ ${errorMsg}`
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      // Step 3: Send token to backend
+      try {
+        await verifyEmail(token);
+        
+        // Success!
+        setStatus('success');
+        setTimeout(() => navigate('/email-verified-success/'), 1500);
+        
+      } catch (error) {
+        // Failed!
+        console.error('Verification error:', error);
+        setStatus('error');
+        setTimeout(() => navigate('/email-verify-failed/'), 2000);
+      }
+    };
+
+    handleVerification();
+  }, [searchParams, navigate, verifyEmail]);
 
   return (
-    <div className="email-verify-failed-container">
-      <div className="email-verify-failed-card">
-        {/* Error Icon */}
-        <div className="text-center">
-          <div className="email-verify-failed-icon-wrapper">
-            <svg width="40" height="40" fill="white" viewBox="0 0 16 16">
-              <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z" />
-            </svg>
-          </div>
-        </div>
-
-        {/* Title */}
-        <h2 className="text-center email-verify-failed-title">
-          Verification Failed ❌
-        </h2>
-
-        {/* Message */}
-        <p className="text-center email-verify-failed-text">
-          The verification link is invalid or has expired.
-        </p>
-
-        {/* Resend Form */}
-        <Form onSubmit={handleResend}>
-          <Form.Group className="mb-3">
-            <Form.Label className="email-verify-failed-label">
-              Email Address
-            </Form.Label>
-            <Form.Control
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter your email"
-              required
-              className="email-verify-failed-input"
+    <div 
+      className="d-flex align-items-center justify-content-center min-vh-100" 
+      style={{ backgroundColor: '#0f1118' }}
+    >
+      <div className="text-center text-white">
+        
+        {/* VERIFYING STATE */}
+        {status === 'verifying' && (
+          <>
+            <Spinner 
+              animation="border" 
+              variant="primary" 
+              style={{ width: '3rem', height: '3rem' }} 
             />
-          </Form.Group>
-
-          <Button
-            type="submit"
-            variant="primary"
-            className="w-100 mb-3 email-verify-failed-submit-btn"
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <>
-                <Spinner
-                  as="span"
-                  animation="border"
-                  size="sm"
-                  role="status"
-                  className="me-2"
-                />
-                Sending...
-              </>
-            ) : (
-              "Resend Verification Email"
-            )}
-          </Button>
-
-          {/* Message */}
-          {message && (
-            <div
-              className={`mb-0 ${
-                message.type === 'success'
-                  ? 'email-verify-failed-alert-success'
-                  : 'email-verify-failed-alert-error'
-              }`}
-            >
-              {message.text}
+            <h3 className="mt-3">Verifying your email...</h3>
+            <p className="text-muted">Please wait</p>
+          </>
+        )}
+        
+        {/* SUCCESS STATE */}
+        {status === 'success' && (
+          <>
+            <div className="text-success mb-3">
+              <svg width="64" height="64" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
+              </svg>
             </div>
-          )}
-        </Form>
-
-        {/* Back to Login */}
-        <div className="text-center mt-4">
-          <button
-            onClick={() => navigate("/login/")}
-            className="btn btn-link email-verify-failed-back-link"
-          >
-            Back to Login
-          </button>
-        </div>
+            <h3 className="text-success">Email Verified!</h3>
+            <p className="text-muted">Redirecting...</p>
+          </>
+        )}
+        
+        {/* ERROR STATE */}
+        {status === 'error' && (
+          <>
+            <div className="text-danger mb-3">
+              <svg width="64" height="64" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM5.354 4.646a.5.5 0 1 0-.708.708L7.293 8l-2.647 2.646a.5.5 0 0 0 .708.708L8 8.707l2.646 2.647a.5.5 0 0 0 .708-.708L8.707 8l2.647-2.646a.5.5 0 0 0-.708-.708L8 7.293 5.354 4.646z"/>
+              </svg>
+            </div>
+            <h3 className="text-danger">Verification Failed</h3>
+            <p className="text-muted">Redirecting...</p>
+          </>
+        )}
       </div>
     </div>
   );
 }
 
-export default EmailVerifyFailed;
+export default VerifyEmail;
