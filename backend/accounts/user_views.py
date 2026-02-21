@@ -53,24 +53,10 @@ def invalidate_user_cache(user):
 
 
 def update_user_cache(user):
-    """
-    Invalidate old cache and warm with fresh data.
-    
-    OPTIMIZATION: Immediately warm cache after update
-    This prevents cache miss on next request (cache stampede prevention)
-    
-    PERFORMANCE GAIN: Next request is ~50ms faster (no DB hit)
-    """
-    # Invalidate old entries
     cache.delete(get_user_cache_key(user.id))
     cache.delete(get_user_by_email_cache_key(user.email))
-    
-    # Warm cache with fresh data
-    cache.set(get_user_cache_key(user.id), user, USER_CACHE_TIMEOUT)
     cache.set(get_user_by_email_cache_key(user.email), user.id, USER_CACHE_TIMEOUT)
-    
-    logger.debug(f"Cache warmed for user {user.id}")
-
+    logger.debug(f"Cache updated for user {user.id}")
 
 def build_avatar_url(request, avatar):
     """

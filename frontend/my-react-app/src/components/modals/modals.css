@@ -1,0 +1,104 @@
+/* src/components/modals/modals.css */
+
+/* Modal Dark Theme */
+.modal-header-dark {
+  background: #1a1d24;
+  border-bottom: 1px solid #374151;
+  color: #f3f4f6;
+}
+
+.modal-header-dark .btn-close {
+  filter: invert(1);
+  opacity: 0.8;
+}
+
+.modal-header-dark .btn-close:hover {
+  opacity: 1;
+}
+
+.modal-body-dark {
+  background: #1a1d24;
+  color: #f3f4f6;
+}
+
+.modal-body-dark .form-label {
+  color: #d1d5db;
+  font-weight: 500;
+}
+
+.modal-body-dark .form-control {
+  background: #0f1118;
+  border: 1px solid #374151;
+  color: #f3f4f6;
+}
+
+.modal-body-dark .form-control:focus {
+  background: #0f1118;
+  border-color: #8b5cf6;
+  color: #f3f4f6;
+  box-shadow: 0 0 0 0.2rem rgba(139, 92, 246, 0.25);
+}
+
+.modal-body-dark .form-control::placeholder {
+  color: #6b7280;
+}
+
+.modal-body-dark .form-text {
+  color: #9ca3af;
+}
+
+.modal-content {
+  background: #1a1d24;
+  border: 1px solid #374151;
+  border-radius: 12px;
+}
+
+.modal-body-dark .btn-secondary {
+  background: #374151;
+  border: none;
+}
+
+.modal-body-dark .btn-secondary:hover {
+  background: #4b5563;
+}
+
+.modal-body-dark .btn-primary {
+  background: #8b5cf6;
+  border: none;
+}
+
+.modal-body-dark .btn-primary:hover {
+  background: #7c3aed;
+}
+
+.modal-body-dark .btn-danger {
+  background: #ef4444;
+  border: none;
+}
+
+.modal-body-dark .btn-danger:hover {
+  background: #dc2626;
+}
+
+/* Alert styling */
+.modal-body-dark .alert {
+  border-radius: 8px;
+}
+
+.modal-body-dark .alert-success {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+  border-left: 4px solid #10b981;
+}
+
+.modal-body-dark .alert-danger {
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  border-left: 4px solid #ef4444;
+}
+
+.modal-body-dark .alert-warning {
+  background: rgba(245, 158, 11, 0.1);
+  color: #fbbf24;
+  border-left: 4px solid #f59e0b;
+}

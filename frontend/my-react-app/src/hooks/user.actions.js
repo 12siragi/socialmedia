@@ -40,6 +40,7 @@ function useUserActions() {
   // USER INFO & PROFILE
   // ----------------------
   const getUser = useCallback(() => authManager.getUser(), []);
+  
   const updateProfile = useCallback(async (data) => {
     const formData = new FormData();
     if (data.first_name) formData.append("first_name", data.first_name);
@@ -72,45 +73,137 @@ function useUserActions() {
     return res.data;
   }, [navigate]);
 
-  // ----------------------
-  // PASSWORD & EMAIL RECOVERY
-  // ----------------------
-  const forgotPassword = useCallback(async (email) => {
-    const res = await axiosService.post("/api/auth/forgot-password/", { email });
-    return res.data;
-  }, []);
-
-  const resetPassword = useCallback(async (uid, token, password) => {
-    const res = await axiosService.post("/api/auth/reset-password/", { uid, token, password });
-    return res.data;
-  }, []);
-
-  const resendVerificationEmail = useCallback(async (email) => {
-    const res = await axiosService.post("/api/auth/resend-verification-email/", { email });
-    return res.data;
-  }, []);
-
-  // ----------------------
-  // SOCIAL LOGIN
-  // ----------------------
-  const initiateSocialLogin = useCallback((provider) => {
-    window.location.href = `${import.meta.env.VITE_API_URL}/api/auth/social/login/${provider}/`;
-  }, []);
-
-  const handleSocialLoginSuccess = useCallback((access, refresh, email, firstName, lastName) => {
-    const userData = { access, refresh, user: { email, first_name: firstName, last_name: lastName } };
-    authManager.setAuth(userData);
-    return userData;
-  }, []);
-
-  const getSocialProviders = useCallback(async () => (await axiosService.get("/api/auth/social/providers/")).data, []);
-  const getConnectedAccounts = useCallback(async () => (await axiosService.get("/api/auth/social/accounts/")).data, []);
-  const disconnectSocialAccount = useCallback(async (provider) => (await axiosService.delete("/api/auth/social/accounts/", { data: { provider } })).data, []);
-
-  // ----------------------
-  // ACCOUNT SETTINGS
-  // ----------------------
   const getAccountSettings = useCallback(async () => (await axiosService.get("/api/auth/account/settings/")).data, []);
+
+  // ----------------------
+  // POSTS
+  // ----------------------
+  const getPosts = useCallback(async () => {
+    const res = await axiosService.get("/api/post/");  // ✅ FIXED: /api/posts/ (plural)
+    return res.data;
+  }, []);
+
+  const getPost = useCallback(async (postId) => {
+    const res = await axiosService.get(`/api/post/${postId}/`);  // ✅ FIXED
+    return res.data;
+  }, []);
+
+  const createPost = useCallback(async (data) => {
+    const formData = new FormData();
+    
+    if (data.content) {
+      formData.append("content", data.content);
+    }
+    
+    if (data.media_files && data.media_files.length > 0) {
+      data.media_files.forEach((file) => {
+        formData.append("media_files", file);
+      });
+    }
+
+    const res = await axiosService.post("/api/post/", formData, {  // ✅ FIXED
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data;
+  }, []);
+
+  const updatePost = useCallback(async (postId, data) => {
+    const res = await axiosService.put(`/api/post/${postId}/`, data);  // ✅ FIXED
+    return res.data;
+  }, []);
+
+  const deletePost = useCallback(async (postId) => {
+    const res = await axiosService.delete(`/api/post/${postId}/`);  // ✅ FIXED
+    return res.data;
+  }, []);
+
+  const getMyPosts = useCallback(async () => {
+    const res = await axiosService.get("/api/post/my/");  // ✅ FIXED
+    return res.data;
+  }, []);
+
+  const getUserPosts = useCallback(async (userId) => {
+    const res = await axiosService.get(`/api/post/user/${userId}/`);  // ✅ FIXED
+    return res.data;
+  }, []);
+
+  // ----------------------
+  // LIKES
+  // ----------------------
+  const toggleLike = useCallback(async (postId) => {
+    const res = await axiosService.post(`/api/likes/posts/${postId}/like/`);
+    return res.data;
+  }, []);
+
+  const getPostLikes = useCallback(async (postId) => {
+    const res = await axiosService.get(`/api/likes/posts/${postId}/likes/`);
+    return res.data;
+  }, []);
+
+  const getMyLikes = useCallback(async () => {
+    const res = await axiosService.get("/api/likes/my/");
+    return res.data;
+  }, []);
+
+  // ----------------------
+  // COMMENTS
+  // ----------------------
+  const getComments = useCallback(async (postId) => {
+    const res = await axiosService.get(`/api/comment/posts/${postId}/comments/`);
+    return res.data;
+  }, []);
+
+  const createComment = useCallback(async (postId, content, parentId = null) => {
+    const data = { content };
+    if (parentId) {
+      data.parent_id = parentId;
+    }
+    const res = await axiosService.post(`/api/comment/posts/${postId}/comments/`, data);
+    return res.data;
+  }, []);
+
+  const updateComment = useCallback(async (commentId, content) => {
+    const res = await axiosService.put(`/api/comment/comments/${commentId}/update/`, { content });
+    return res.data;
+  }, []);
+
+  const deleteComment = useCallback(async (commentId) => {
+    const res = await axiosService.delete(`/api/comment/comments/${commentId}/delete/`);
+    return res.data;
+  }, []);
+
+  const getCommentReplies = useCallback(async (commentId) => {
+    const res = await axiosService.get(`/api/comment/comments/${commentId}/replies/`);
+    return res.data;
+  }, []);
+
+  const getMyComments = useCallback(async () => {
+    const res = await axiosService.get("/api/comment/my/");
+    return res.data;
+  }, []);
+
+  // ----------------------
+  // BOOKMARKS
+  // ----------------------
+  const toggleBookmark = useCallback(async (postId) => {
+    const res = await axiosService.post(`/api/bookmarks/posts/${postId}/bookmark/`);
+    return res.data;
+  }, []);
+
+  const getMyBookmarks = useCallback(async () => {
+    const res = await axiosService.get("/api/bookmarks/my/");
+    return res.data;
+  }, []);
+
+  const checkBookmark = useCallback(async (postId) => {
+    const res = await axiosService.get(`/api/bookmarks/check/${postId}/`);
+    return res.data;
+  }, []);
+
+  const removeBookmark = useCallback(async (bookmarkId) => {
+    const res = await axiosService.delete(`/api/bookmarks/${bookmarkId}/`);
+    return res.data;
+  }, []);
 
   return {
     // auth
@@ -125,20 +218,36 @@ function useUserActions() {
     changeEmail,
     deleteAccount,
 
-    // recovery
-    forgotPassword,
-    resetPassword,
-    resendVerificationEmail,
-
-    // social
-    initiateSocialLogin,
-    handleSocialLoginSuccess,
-    getSocialProviders,
-    getConnectedAccounts,
-    disconnectSocialAccount,
-
     // account settings
     getAccountSettings,
+
+    // posts
+    getPosts,
+    getPost,
+    createPost,
+    updatePost,
+    deletePost,
+    getMyPosts,
+    getUserPosts,
+
+    // likes
+    toggleLike,
+    getPostLikes,
+    getMyLikes,
+
+    // comments
+    getComments,
+    createComment,
+    updateComment,
+    deleteComment,
+    getCommentReplies,
+    getMyComments,
+
+    // bookmarks
+    toggleBookmark,
+    getMyBookmarks,
+    checkBookmark,
+    removeBookmark,
   };
 }
 

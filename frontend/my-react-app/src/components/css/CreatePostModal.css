@@ -1,0 +1,90 @@
+/* src/components/css/CreatePostModal.css */
+.modal-content {
+  background: #1a1d24;
+  border: 1px solid #374151;
+  color: #f3f4f6;
+}
+
+.modal-header {
+  border-bottom: 1px solid #374151;
+}
+
+.modal-title {
+  color: #f3f4f6;
+}
+
+.btn-close {
+  filter: invert(1);
+}
+
+textarea.form-control {
+  background: #0f1118;
+  border: 1px solid #374151;
+  color: #f3f4f6;
+  min-height: 120px;
+  resize: none;
+}
+
+textarea.form-control:focus {
+  background: #0f1118;
+  border-color: #8b5cf6;
+  color: #f3f4f6;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+textarea.form-control::placeholder {
+  color: #6b7280;
+}
+
+/* Media Previews */
+.media-previews {
+  background: #0f1118;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.preview-item {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.preview-item img,
+.preview-item video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.remove-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.8);
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.remove-btn i {
+  color: white;
+  font-size: 20px;
+}
+
+.remove-btn:hover {
+  background: #ef4444;
+  transform: scale(1.1);
+}

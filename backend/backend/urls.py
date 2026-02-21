@@ -21,13 +21,13 @@ def home(request):
         "version": "1.0.0",
         "endpoints": {
             "auth": "/api/auth/",
-            "posts": "/api/post/",
+            "post": "/api/post/",
             "comments": "/api/comment/",
             "admin": "/admin/",
             "docs": "/api/docs/",  # If you add API documentation
         }
     })
-
+        
 urlpatterns = [
     # Health check
     path("", home, name="home"),
@@ -38,7 +38,9 @@ urlpatterns = [
     # API endpoints
     path("api/auth/", include("accounts.urls")),
     path("api/post/", include("post.urls")),
+    path('api/likes/', include('likes.urls')),
     path("api/comment/", include("comment.urls")),
+    path('api/bookmarks/', include('bookmarks.urls')),
 ]
 
 # Serve media files in development only

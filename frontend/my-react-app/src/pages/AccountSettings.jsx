@@ -1,7 +1,8 @@
-// pages/AccountSettings.jsx - FIXED VERSION (Media URL)
+// src/pages/AccountSettings.jsx
 import React, { useState, useEffect } from 'react';
+import { Card, Button, Image } from "react-bootstrap";
+import { useAuth } from "../components/contexts/AuthContext";
 import { useNavigate } from 'react-router-dom';
-import { Image } from 'react-bootstrap';
 import useUserActions from '../hooks/user.actions';
 import Layout from '../components/Layout';
 import EditProfileModal from '../components/modals/EditProfileModal';
@@ -10,14 +11,15 @@ import ChangeEmailModal from '../components/modals/ChangeEmailModal';
 import DeleteAccountModal from '../components/modals/DeleteAccountModal';
 import '../components/css/AccountSettings.css';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL  || import.meta.env.VITE_API_URL;
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL;
+
 function AccountSettings() {
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const { getAccountSettings, getConnectedAccountsDetailed, logout } = useUserActions();
+  const { getAccountSettings, logout } = useUserActions();
   
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState(null);
-  const [connectedAccounts, setConnectedAccounts] = useState([]);
   const [error, setError] = useState(null);
   
   // Modal states
@@ -26,7 +28,7 @@ function AccountSettings() {
   const [showChangeEmail, setShowChangeEmail] = useState(false);
   const [showDeleteAccount, setShowDeleteAccount] = useState(false);
 
-  // ✅ Error handler helper
+  // Error handler helper
   const handleApiError = (error, defaultMessage) => {
     if (error.response) {
       return error.response.data?.detail || defaultMessage;
@@ -46,13 +48,8 @@ function AccountSettings() {
       setLoading(true);
       setError(null);
       
-      const [settingsData, accountsData] = await Promise.all([
-        getAccountSettings(),
-        getConnectedAccountsDetailed(),
-      ]);
-      
+      const settingsData = await getAccountSettings();
       setSettings(settingsData);
-      setConnectedAccounts(accountsData.social_accounts || []);
     } catch (err) {
       console.error('Failed to load settings:', err);
       const errorMessage = handleApiError(err, 'Failed to load account settings');
@@ -90,25 +87,21 @@ function AccountSettings() {
     return nameParts.slice(1).join(' ') || '';
   };
 
-  // ✅ FIXED: Get avatar URL with proper backend URL
+  // Get avatar URL with proper backend URL
   const getAvatarUrl = () => {
     // 1. If uploaded avatar exists, use it
     if (settings?.avatar) {
-      // Check if it's already a full URL
       if (settings.avatar.startsWith('http')) {
         return settings.avatar;
       }
-      // ✅ Prepend BACKEND_URL for relative paths
       return `${BACKEND_URL}${settings.avatar}`;
     }
     
     // 2. If cached avatar_url exists (from backend), use it
     if (settings?.avatar_url) {
-      // Check if it's already a full URL
       if (settings.avatar_url.startsWith('http')) {
         return settings.avatar_url;
       }
-      // ✅ Prepend BACKEND_URL for relative paths
       return `${BACKEND_URL}${settings.avatar_url}`;
     }
     
@@ -118,10 +111,11 @@ function AccountSettings() {
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(firstName)}+${encodeURIComponent(lastName)}&background=8b5cf6&color=fff&bold=true`;
   };
 
+  // Loading State
   if (loading) {
     return (
       <Layout>
-        <div className="account-settings-loading">
+        <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '400px' }}>
           <div className="spinner-border text-primary" role="status">
             <span className="visually-hidden">Loading...</span>
           </div>
@@ -130,14 +124,15 @@ function AccountSettings() {
     );
   }
 
+  // Error State
   if (error || !settings) {
     return (
       <Layout>
-        <div className="account-settings-error">
-          <p>{error || 'Failed to load settings'}</p>
-          <button className="btn btn-primary" onClick={loadSettings}>
+        <div className="text-center py-5">
+          <p className="text-danger mb-3">{error || 'Failed to load settings'}</p>
+          <Button variant="primary" onClick={loadSettings}>
             Retry
-          </button>
+          </Button>
         </div>
       </Layout>
     );
@@ -145,193 +140,191 @@ function AccountSettings() {
 
   return (
     <Layout>
-      <div className="account-settings-container">
-        <div className="account-settings-wrapper">
-          <div className="account-settings-header">
-            <h1 className="account-settings-title">Account Settings</h1>
-          </div>
-
-          <div className="account-settings-content">
-            {/* Profile Section */}
-            <div className="account-settings-section">
-              <div className="account-settings-section-header">
-                <h2 className="account-settings-section-title">Profile</h2>
-                <button 
-                  className="account-settings-btn-edit"
-                  onClick={() => setShowEditProfile(true)}
-                >
-                  Edit Profile
-                </button>
-              </div>
-              <div className="account-settings-section-body">
-                <div className="account-settings-profile-display">
-                  <div className="user-avatar-wrapper">
-                    <Image
-                      src={getAvatarUrl()}
-                      roundedCircle
-                      width={80}
-                      height={80}
-                      alt="User avatar"
-                      className="user-avatar"
-                      onError={(e) => {
-                        // Fallback if image fails to load
-                        e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(getFirstName())}+${encodeURIComponent(getLastName())}&background=8b5cf6&color=fff&bold=true`;
-                      }}
-                    />
-                    <span className="online-indicator" />
-                  </div>
-                  <div className="account-settings-profile-info">
-                    <h3>{settings.full_name}</h3>
-                    <p>{settings.email}</p>
-                    {!settings.email_verified && (
-                      <span className="account-settings-badge-warning">
-                        Email Not Verified
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Email & Password Section */}
-            <div className="account-settings-section">
-              <div className="account-settings-section-header">
-                <h2 className="account-settings-section-title">Email & Password</h2>
-              </div>
-              <div className="account-settings-section-body">
-                <div className="account-settings-item">
-                  <div className="account-settings-item-info">
-                    <label className="account-settings-item-label">Email Address</label>
-                    <p className="account-settings-item-value">{settings.email}</p>
-                    {!settings.email_verified && (
-                      <span style={{ color: '#ffc107', fontSize: '0.875rem' }}>
-                        ⚠️ Please verify your email
-                      </span>
-                    )}
-                  </div>
-                  <button 
-                    className="account-settings-btn-change"
-                    onClick={() => setShowChangeEmail(true)}
-                  >
-                    Change Email
-                  </button>
-                </div>
-
-                {settings.has_password && (
-                  <div className="account-settings-item">
-                    <div className="account-settings-item-info">
-                      <label className="account-settings-item-label">Password</label>
-                      <p className="account-settings-item-value">••••••••</p>
-                    </div>
-                    <button 
-                      className="account-settings-btn-change"
-                      onClick={() => setShowChangePassword(true)}
-                    >
-                      Change Password
-                    </button>
-                  </div>
-                )}
-
-                {!settings.has_password && (
-                  <div className="alert alert-info">
-                    <strong>Social Login Only</strong>
-                    <p className="mb-0 small">
-                      You're using social authentication. 
-                      Set a password to enable email login.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Connected Accounts Section */}
-            <div className="account-settings-section">
-              <div className="account-settings-section-header">
-                <h2 className="account-settings-section-title">Connected Accounts</h2>
-              </div>
-              <div className="account-settings-section-body">
-                {connectedAccounts.length === 0 ? (
-                  <p style={{ color: '#8e8e93' }}>No social accounts connected</p>
-                ) : (
-                  <div className="account-settings-connected-list">
-                    {connectedAccounts.map((account, index) => (
-                      <div 
-                        key={`${account.provider}-${index}`} 
-                        className="account-settings-connected-item"
-                      >
-                        <div className="account-settings-account-icon">
-                          {account.provider === 'google-oauth2' && '🔵'}
-                          {account.provider === 'github' && '⚫'}
-                          {account.provider === 'facebook' && '🔵'}
-                        </div>
-                        <div className="account-settings-account-details">
-                          <strong>
-                            {account.provider === 'google-oauth2' ? 'Google' : 
-                             account.provider === 'github' ? 'GitHub' : 
-                             account.provider}
-                          </strong>
-                          <p className="text-muted small mb-0">
-                            Connected on {new Date(account.created).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <span className="account-settings-badge-success">Connected</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Danger Zone */}
-            <div className="account-settings-section account-settings-danger">
-              <div className="account-settings-section-header">
-                <h2 className="account-settings-section-title">Danger Zone</h2>
-              </div>
-              <div className="account-settings-section-body">
-                <div className="account-settings-danger-item">
-                  <div className="account-settings-item-info">
-                    <label className="account-settings-item-label">Delete Account</label>
-                    <p className="small" style={{ color: '#8e8e93' }}>
-                      Permanently delete your account and all associated data. 
-                      This action cannot be undone.
-                    </p>
-                  </div>
-                  <button 
-                    className="account-settings-btn-danger"
-                    onClick={() => setShowDeleteAccount(true)}
-                  >
-                    Delete Account
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Modals */}
-          <EditProfileModal 
-            show={showEditProfile}
-            onClose={() => setShowEditProfile(false)}
-            onSuccess={handleProfileUpdated}
-          />
-          
-          <ChangePasswordModal 
-            show={showChangePassword}
-            onClose={() => setShowChangePassword(false)}
-            onSuccess={handlePasswordChanged}
-          />
-          
-          <ChangeEmailModal 
-            show={showChangeEmail}
-            onClose={() => setShowChangeEmail(false)}
-            onSuccess={handleEmailChanged}
-            currentEmail={settings?.email}
-          />
-          
-          <DeleteAccountModal 
-            show={showDeleteAccount}
-            onClose={() => setShowDeleteAccount(false)}
-          />
+      <div className="account-settings">
+        {/* Header */}
+        <div className="settings-header mb-4">
+          <h1 className="display-5 mb-2">
+            <i className="bi bi-gear me-2"></i>
+            Account Settings
+          </h1>
+          <p className="text-white">Manage your account preferences and security</p>
         </div>
+
+        {/* Profile Section */}
+        <Card className="settings-card mb-4">
+          <Card.Body>
+            <div className="d-flex justify-content-between align-items-center mb-3">
+              <h5 className="card-title mb-0">
+                <i className="bi bi-person-circle me-2"></i>
+                Profile Information
+              </h5>
+              <Button 
+                variant="outline-primary" 
+                size="sm" 
+                onClick={() => setShowEditProfile(true)}
+              >
+                <i className="bi bi-pencil me-2"></i>
+                Edit
+              </Button>
+            </div>
+
+            <div className="d-flex align-items-center gap-3">
+              <div className="user-avatar-wrapper">
+                <Image
+                  src={getAvatarUrl()}
+                  roundedCircle
+                  width={80}
+                  height={80}
+                  alt="User avatar"
+                  className="user-avatar"
+                  onError={(e) => {
+                    e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(getFirstName())}+${encodeURIComponent(getLastName())}&background=8b5cf6&color=fff&bold=true`;
+                  }}
+                />
+                <span className="online-indicator" />
+              </div>
+              <div>
+                <h5 className="mb-1">{settings.full_name || 'User'}</h5>
+                <p className="text-white mb-1">{settings.email}</p>
+                {!settings.email_verified && (
+                  <span className="badge bg-warning text-dark">
+                    <i className="bi bi-exclamation-triangle me-1"></i>
+                    Email Not Verified
+                  </span>
+                )}
+                {settings.email_verified && (
+                  <span className="badge bg-success">
+                    <i className="bi bi-check-circle me-1"></i>
+                    Email Verified
+                  </span>
+                )}
+              </div>
+            </div>
+          </Card.Body>
+        </Card>
+
+        {/* Email & Password Section */}
+        <Card className="settings-card mb-4">
+          <Card.Body>
+            <h5 className="card-title mb-4">
+              <i className="bi bi-shield-lock me-2"></i>
+              Security
+            </h5>
+
+            {/* Email */}
+            <div className="mb-4 pb-3 border-bottom">
+              <div className="d-flex justify-content-between align-items-start">
+                <div>
+                  <label className="fw-semibold mb-1">Email Address</label>
+                  <p className="mb-1">{settings.email}</p>
+                  {!settings.email_verified && (
+                    <small className="text-warning">
+                      <i className="bi bi-exclamation-triangle me-1"></i>
+                      Please verify your email
+                    </small>
+                  )}
+                </div>
+                <Button 
+                  variant="outline-primary" 
+                  size="sm"
+                  onClick={() => setShowChangeEmail(true)}
+                >
+                  Change
+                </Button>
+              </div>
+            </div>
+
+            {/* Password */}
+            {settings.has_password && (
+              <div className="d-flex justify-content-between align-items-start">
+                <div>
+                  <label className="fw-semibold mb-1">Password</label>
+                  <p className="mb-0">••••••••</p>
+                </div>
+                <Button 
+                  variant="outline-primary" 
+                  size="sm"
+                  onClick={() => setShowChangePassword(true)}
+                >
+                  Change
+                </Button>
+              </div>
+            )}
+
+            {!settings.has_password && (
+              <div className="alert alert-info mb-0">
+                <i className="bi bi-info-circle me-2"></i>
+                <strong>Social Login Only</strong>
+                <p className="mb-0 small mt-1">
+                  You're using social authentication. Set a password to enable email login.
+                </p>
+              </div>
+            )}
+          </Card.Body>
+        </Card>
+
+        {/* Connected Accounts Section */}
+        <Card className="settings-card mb-4">
+          <Card.Body>
+            <h5 className="card-title mb-3">
+              <i className="bi bi-link-45deg me-2"></i>
+              Connected Accounts
+            </h5>
+            <p className="text-white mb-0">
+              Connected accounts information will be available soon.
+            </p>
+          </Card.Body>
+        </Card>
+
+        {/* Danger Zone */}
+        <Card className="settings-card border-danger">
+          <Card.Body>
+            <h5 className="card-title text-danger mb-3">
+              <i className="bi bi-exclamation-triangle me-2"></i>
+              Danger Zone
+            </h5>
+            <div className="d-flex justify-content-between align-items-start">
+              <div>
+                <label className="fw-semibold mb-1">Delete Account</label>
+                <p className="text-muted small mb-0">
+                  Permanently delete your account and all associated data. This action cannot be undone.
+                </p>
+              </div>
+              <Button 
+                variant="danger"
+                onClick={() => setShowDeleteAccount(true)}
+              >
+                <i className="bi bi-trash me-2"></i>
+                Delete
+              </Button>
+            </div>
+          </Card.Body>
+        </Card>
+
+        {/* Modals */}
+        <EditProfileModal 
+          show={showEditProfile}
+          onClose={() => setShowEditProfile(false)}
+          onSuccess={handleProfileUpdated}
+        />
+        
+        <ChangePasswordModal 
+          show={showChangePassword}
+          onClose={() => setShowChangePassword(false)}
+          onSuccess={handlePasswordChanged}
+        />
+        
+        <ChangeEmailModal 
+          show={showChangeEmail}
+          onClose={() => setShowChangeEmail(false)}
+          onSuccess={handleEmailChanged}
+          currentEmail={settings?.email}
+        />
+        
+        <DeleteAccountModal 
+          show={showDeleteAccount}
+          onClose={() => setShowDeleteAccount(false)}
+        />
       </div>
     </Layout>
   );

@@ -80,7 +80,7 @@ function ChangePasswordModal({ show, onClose, onSuccess }) {
   return (
     <Modal show={show} onHide={handleClose} centered className="profile-modal">
       <Modal.Header closeButton>
-        <Modal.Title>Change Password</Modal.Title>
+        <Modal.Title className="text-white">Change Password</Modal.Title>
       </Modal.Header>
       
       <Modal.Body>
@@ -93,7 +93,7 @@ function ChangePasswordModal({ show, onClose, onSuccess }) {
         <Form onSubmit={handleSubmit}>
           {/* Current Password */}
           <Form.Group className="mb-3">
-            <Form.Label>Current Password</Form.Label>
+            <Form.Label className="text-white">Current Password</Form.Label>
             <div className="password-input-wrapper">
               <Form.Control
                 type={showPasswords.old ? 'text' : 'password'}
@@ -114,7 +114,7 @@ function ChangePasswordModal({ show, onClose, onSuccess }) {
 
           {/* New Password */}
           <Form.Group className="mb-3">
-            <Form.Label>New Password</Form.Label>
+            <Form.Label className="text-white">New Password</Form.Label>
             <div className="password-input-wrapper">
               <Form.Control
                 type={showPasswords.new ? 'text' : 'password'}
@@ -139,7 +139,7 @@ function ChangePasswordModal({ show, onClose, onSuccess }) {
 
           {/* Confirm Password */}
           <Form.Group className="mb-3">
-            <Form.Label>Confirm New Password</Form.Label>
+            <Form.Label className="text-white">Confirm New Password</Form.Label>
             <div className="password-input-wrapper">
               <Form.Control
                 type={showPasswords.confirm ? 'text' : 'password'}

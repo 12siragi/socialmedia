@@ -9,6 +9,7 @@ import Login from "./pages/Login";
 import Registration from "./pages/Registration";
 import AccountSettings from "./pages/AccountSettings";
 
+
 // ✅ Lazy load everything else
 const Home = lazy(() => import("./pages/Home"));
 const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
