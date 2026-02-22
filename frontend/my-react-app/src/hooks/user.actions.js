@@ -35,39 +35,34 @@ function useUserActions() {
     authManager.clearTempAuth();
     navigate("/login/");
   }, [navigate]);
+  // These exist in URLs but not in your hook
+const verifyEmail = useCallback(async (uidb64, token) => {
+  const res = await axiosService.get(`/api/auth/verify-email/?uid=${uidb64}&token=${token}`);
+  return res.data;
+}, []);
 
 const resendVerificationEmail = useCallback(async (email) => {
   const res = await axiosService.post("/api/auth/resend-verification-email/", { email });
   return res.data;
 }, []);
 
-const verifyEmail = useCallback(async (token) => {
-  const res = await axiosService.post("/api/auth/verify-email/", { token });
+const forgotPassword = useCallback(async (email) => {
+  const res = await axiosService.post("/api/auth/forgot-password/", { email });
   return res.data;
 }, []);
 
-const resetPassword = useCallback(async (token, newPassword) => {
-  const res = await axiosService.post("/api/auth/password/reset/", { token, new_password: newPassword });
-  return res.data;
-}, []);
-
-const confirmPasswordReset = useCallback(async (data) => {
-  const res = await axiosService.post("/api/auth/password-reset-confirm/", data);
+const resetPassword = useCallback(async (uid, token, password) => {
+  const res = await axiosService.post("/api/auth/password/reset/", { uid, token, password });
   return res.data;
 }, []);
 
 const setPassword = useCallback(async (newPassword, confirmPassword) => {
-  const res = await axiosService.post("/api/auth/password/set/", { 
-    new_password: newPassword, 
-    confirm_password: confirmPassword 
+  const res = await axiosService.post("/api/auth/password/set/", {
+    new_password: newPassword,
+    confirm_password: confirmPassword
   });
   return res.data;
 }, []);
-
-  const forgotPassword = useCallback(async (email) => {
-    const res = await axiosService.post("/api/auth/forgot-password/", { email });
-    return res.data;
-  }, []);
   // ----------------------
   // USER INFO & PROFILE
   // ----------------------
@@ -245,10 +240,9 @@ const setPassword = useCallback(async (newPassword, confirmPassword) => {
     getUser,
     forgotPassword,
     resetPassword,
-    confirmPasswordReset,
-    setPassword,
-    resendVerificationEmail,
     verifyEmail,
+    resendVerificationEmail,
+    setPassword,
 
     // profile
     updateProfile,
