@@ -36,6 +36,38 @@ function useUserActions() {
     navigate("/login/");
   }, [navigate]);
 
+const resendVerificationEmail = useCallback(async (email) => {
+  const res = await axiosService.post("/api/auth/resend-verification-email/", { email });
+  return res.data;
+}, []);
+
+const verifyEmail = useCallback(async (token) => {
+  const res = await axiosService.post("/api/auth/verify-email/", { token });
+  return res.data;
+}, []);
+
+const resetPassword = useCallback(async (token, newPassword) => {
+  const res = await axiosService.post("/api/auth/password/reset/", { token, new_password: newPassword });
+  return res.data;
+}, []);
+
+const confirmPasswordReset = useCallback(async (data) => {
+  const res = await axiosService.post("/api/auth/password-reset-confirm/", data);
+  return res.data;
+}, []);
+
+const setPassword = useCallback(async (newPassword, confirmPassword) => {
+  const res = await axiosService.post("/api/auth/password/set/", { 
+    new_password: newPassword, 
+    confirm_password: confirmPassword 
+  });
+  return res.data;
+}, []);
+
+  const forgotPassword = useCallback(async (email) => {
+    const res = await axiosService.post("/api/auth/forgot-password/", { email });
+    return res.data;
+  }, []);
   // ----------------------
   // USER INFO & PROFILE
   // ----------------------
@@ -211,6 +243,12 @@ function useUserActions() {
     register,
     logout,
     getUser,
+    forgotPassword,
+    resetPassword,
+    confirmPasswordReset,
+    setPassword,
+    resendVerificationEmail,
+    verifyEmail,
 
     // profile
     updateProfile,
