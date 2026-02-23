@@ -2,6 +2,7 @@ from pathlib import Path
 from datetime import timedelta
 import os
 from dotenv import load_dotenv
+from corsheaders.defaults import default_headers
 
 # ===================================================================================
 # BASE CONFIGURATION
@@ -502,3 +503,7 @@ if not DEBUG:
             },
         },
     }
+
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    "ngrok-skip-browser-warning",
+]

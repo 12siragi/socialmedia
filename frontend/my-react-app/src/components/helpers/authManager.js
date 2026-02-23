@@ -39,6 +39,8 @@ class AuthManager {
     }
   }
 
+  
+
   // ✅ Optimized getters
   getAccessToken() {
     return this.getAuth()?.access || null;
@@ -97,14 +99,19 @@ class AuthManager {
     return this.updateTokens({ user: userData });
   }
 
-  clearAuth() {
+  // In your authManager.clearAuth()
+clearAuth() {
     localStorage.removeItem("auth");
+    localStorage.removeItem("auth_temp");
+    // Clear all cookies too
+    document.cookie.split(";").forEach((c) => {
+        document.cookie = c.replace(/^ +/, "")
+            .replace(/=.*/, `=;expires=${new Date().toUTCString()};path=/`);
+    });
     this.cachedAuth = null;
     this.lastAuthCheck = 0;
-    
-    // ✅ Trigger re-renders
     this.notifyListeners();
-  }
+}
 
   clearCache() {
     this.cachedAuth = null;
