@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import useUserActions from '../../hooks/user.actions';
 import '../css/CreatePostModal.css';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL || 'http://localhost:8080';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL;
 
 function CreatePostModal({ show, onClose, onSuccess }) {
   const { user } = useAuth();

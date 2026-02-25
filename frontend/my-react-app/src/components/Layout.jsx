@@ -1,5 +1,5 @@
 import React, { createContext, useState } from "react";
-import Navigationbar from "./Navbar";
+import Navigationbar from "./Sidebar";
 
 // Create the context
 export const Context = createContext();

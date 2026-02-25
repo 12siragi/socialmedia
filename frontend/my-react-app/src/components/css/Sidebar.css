@@ -1,0 +1,515 @@
+/* src/components/css/Sidebar.css */
+/* ─── Design Tokens ────────────────────────────────────── */
+:root {
+  --pc-bg: #0a0a0a;
+  --pc-surface: #111111;
+  --pc-border: rgba(255, 255, 255, 0.07);
+  --pc-accent: #7c3aed;
+  --pc-accent-glow: rgba(124, 58, 237, 0.25);
+  --pc-text: #f0f0f0;
+  --pc-muted: #6b7280;
+  --pc-hover: rgba(255, 255, 255, 0.05);
+  --pc-active-bg: rgba(124, 58, 237, 0.12);
+  --pc-sidebar-width: 260px;
+  --pc-sidebar-collapsed: 72px;
+  --pc-transition: 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  --pc-bottom-height: 64px;
+}
+
+/* ─── Desktop Sidebar ────────────────────────────────────── */
+.pc-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  width: var(--pc-sidebar-width);
+  background: var(--pc-bg);
+  border-right: 1px solid var(--pc-border);
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+  transition: width var(--pc-transition);
+  overflow: hidden;
+}
+
+.pc-sidebar.collapsed {
+  width: var(--pc-sidebar-collapsed);
+}
+
+/* Brand */
+.pc-brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 16px 16px;
+  min-height: 68px;
+  flex-shrink: 0;
+}
+
+.brand-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.brand-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 8px var(--pc-accent));
+}
+
+.brand-name {
+  font-family: "Syne", "Space Grotesk", system-ui, sans-serif;
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--pc-text);
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, #fff 0%, #c4b5fd 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.collapse-btn {
+  background: none;
+  border: 1px solid var(--pc-border);
+  color: var(--pc-muted);
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all var(--pc-transition);
+  font-size: 0.75rem;
+}
+
+.collapse-btn:hover {
+  background: var(--pc-hover);
+  color: var(--pc-text);
+  border-color: var(--pc-accent);
+}
+
+/* Nav */
+.pc-nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+}
+
+.pc-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.pc-nav-item,
+.pc-create-btn {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 11px 12px;
+  border-radius: 12px;
+  text-decoration: none;
+  color: var(--pc-muted);
+  transition: all var(--pc-transition);
+  position: relative;
+  white-space: nowrap;
+  cursor: pointer;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  font-size: 1rem;
+}
+
+.pc-nav-item:hover,
+.pc-create-btn:hover {
+  background: var(--pc-hover);
+  color: var(--pc-text);
+}
+
+.pc-nav-item.active {
+  background: var(--pc-active-bg);
+  color: var(--pc-accent);
+}
+
+.pc-nav-item.active .pc-nav-icon {
+  color: var(--pc-accent);
+}
+
+.pc-nav-icon {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 1.15rem;
+}
+
+.active-pip {
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--pc-accent);
+  box-shadow: 0 0 6px var(--pc-accent);
+}
+
+.pc-nav-label {
+  font-family: "DM Sans", system-ui, sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Create button — special style */
+.pc-create-btn {
+  margin-top: 8px;
+  background: var(--pc-accent);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 4px 14px var(--pc-accent-glow);
+}
+
+.pc-create-btn:hover {
+  background: #6d28d9;
+  color: #fff;
+  box-shadow: 0 6px 20px var(--pc-accent-glow);
+  transform: translateY(-1px);
+}
+
+/* Collapsed state: hide labels, center icons */
+.pc-sidebar.collapsed .pc-nav-item,
+.pc-sidebar.collapsed .pc-create-btn {
+  justify-content: center;
+  padding: 11px;
+  gap: 0;
+}
+
+/* User Footer */
+.pc-user-footer {
+  position: relative;
+  padding: 10px;
+  border-top: 1px solid var(--pc-border);
+  flex-shrink: 0;
+}
+
+.pc-user-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--pc-text);
+  transition: background var(--pc-transition);
+  text-align: left;
+  overflow: hidden;
+}
+
+.pc-user-btn:hover {
+  background: var(--pc-hover);
+}
+
+.pc-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.pc-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--pc-accent);
+}
+
+.pc-online-dot {
+  position: absolute;
+  bottom: 1px;
+  right: 1px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #22c55e;
+  border: 2px solid var(--pc-bg);
+}
+
+.pc-user-info {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.pc-user-name {
+  font-family: "DM Sans", system-ui, sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--pc-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pc-user-handle {
+  font-size: 0.75rem;
+  color: var(--pc-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pc-user-more {
+  color: var(--pc-muted);
+  font-size: 0.875rem;
+  flex-shrink: 0;
+}
+
+/* Profile popup menu */
+.pc-profile-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 10px;
+  right: 10px;
+  background: #1a1a1a;
+  border: 1px solid var(--pc-border);
+  border-radius: 14px;
+  overflow: hidden;
+  z-index: 200;
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.5);
+  animation: menuSlideUp 0.18s ease;
+}
+
+@keyframes menuSlideUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.pc-profile-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  color: var(--pc-text);
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-family: "DM Sans", system-ui, sans-serif;
+  font-weight: 500;
+  transition: background var(--pc-transition);
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pc-profile-menu-item:hover {
+  background: var(--pc-hover);
+  color: var(--pc-text);
+}
+
+.pc-profile-menu-item.danger {
+  color: #f87171;
+}
+
+.pc-profile-menu-item.danger:hover {
+  background: rgba(248, 113, 113, 0.08);
+}
+
+.pc-profile-menu-divider {
+  height: 1px;
+  background: var(--pc-border);
+  margin: 4px 0;
+}
+
+.pc-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+}
+
+/* ─── Mobile Bottom Bar ──────────────────────────────────── */
+.pc-bottom-bar {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: var(--pc-bottom-height);
+  background: rgba(10, 10, 10, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid var(--pc-border);
+  z-index: 100;
+  align-items: center;
+  justify-content: space-around;
+  padding: 0 8px;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.pc-bottom-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  text-decoration: none;
+  color: var(--pc-muted);
+  font-size: 1.25rem;
+  padding: 6px 12px;
+  border-radius: 12px;
+  transition: all var(--pc-transition);
+  font-family: "DM Sans", system-ui, sans-serif;
+}
+
+.pc-bottom-item span {
+  font-size: 0.625rem;
+  font-weight: 500;
+}
+
+.pc-bottom-item.active {
+  color: var(--pc-text);
+}
+
+.pc-bottom-item.active i {
+  color: var(--pc-accent);
+  filter: drop-shadow(0 0 6px var(--pc-accent));
+}
+
+.pc-bottom-create {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: var(--pc-accent);
+  color: #fff;
+  border: none;
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 16px var(--pc-accent-glow);
+  transition: all var(--pc-transition);
+  flex-shrink: 0;
+}
+
+.pc-bottom-create:hover,
+.pc-bottom-create:active {
+  transform: scale(0.95);
+  background: #6d28d9;
+}
+
+.pc-bottom-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid transparent;
+}
+
+.pc-bottom-avatar.active {
+  border-color: var(--pc-accent);
+}
+
+/* ─── Layout push for sidebar ────────────────────────────── */
+/* Add this to your main layout wrapper */
+.with-sidebar {
+  margin-left: var(--pc-sidebar-width);
+  transition: margin-left var(--pc-transition);
+}
+
+.with-sidebar.sidebar-collapsed {
+  margin-left: var(--pc-sidebar-collapsed);
+}
+
+/* ─── Responsive ─────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .pc-sidebar {
+    width: var(--pc-sidebar-collapsed);
+  }
+
+  .pc-sidebar .brand-name,
+  .pc-sidebar .pc-nav-label,
+  .pc-sidebar .pc-user-info,
+  .pc-sidebar .pc-user-more,
+  .pc-sidebar .collapse-btn {
+    display: none;
+  }
+
+  .pc-sidebar .pc-nav-item,
+  .pc-sidebar .pc-create-btn {
+    justify-content: center;
+    padding: 11px;
+    gap: 0;
+  }
+
+  .pc-sidebar .pc-user-btn {
+    justify-content: center;
+    padding: 10px;
+    gap: 0;
+  }
+
+  .with-sidebar {
+    margin-left: var(--pc-sidebar-collapsed);
+  }
+}
+
+@media (max-width: 640px) {
+  .pc-sidebar {
+    display: none;
+  }
+
+  .pc-bottom-bar {
+    display: flex;
+  }
+
+  .with-sidebar {
+    margin-left: 0;
+    padding-bottom: var(--pc-bottom-height);
+  }
+}
+
+/* ─── Font imports (add to index.html or global CSS) ─────── */
+/* @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap'); */
+
+/* ── Main content offset ─────────────────────────────────── */
+
+/* Desktop: push content right to clear the sidebar */
+.pc-main-content {
+  margin-left: var(--sidebar-width, 240px);
+  min-height: 100vh;
+  transition: margin-left 0.25s ease;
+}
+
+/* When sidebar is collapsed, use its narrower width */
+.pc-sidebar.collapsed ~ .pc-main-content,
+body:has(.pc-sidebar.collapsed) .pc-main-content {
+  margin-left: var(--sidebar-collapsed-width, 72px);
+}
+
+/* Mobile: remove left margin, add bottom padding to clear the bottom bar */
+@media (max-width: 768px) {
+  .pc-main-content {
+    margin-left: 0;
+    padding-bottom: calc(var(--bottom-bar-height, 64px) + env(safe-area-inset-bottom));
+  }
+}
