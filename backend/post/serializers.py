@@ -6,17 +6,6 @@ from .models import Post
 User = get_user_model()
 
 
-def _force_https(url):
-    """
-    Force HTTPS on any URL.
-    Needed because ngrok/backend builds http:// URLs but
-    frontend is on https:// (Vercel) — browser blocks mixed content.
-    """
-    if url and url.startswith('http://'):
-        return url.replace('http://', 'https://', 1)
-    return url
-
-
 # ===================================================================================
 # AUTHOR SERIALIZER
 # ===================================================================================
@@ -31,15 +20,21 @@ class PostAuthorSerializer(serializers.ModelSerializer):
     def get_avatar_url(self, obj):
         request = self.context.get('request')
         if obj.avatar and request:
-            return _force_https(request.build_absolute_uri(obj.avatar.url))
+            return request.build_absolute_uri(obj.avatar.url)
         return obj.avatar_url_cached or ''
 
 
 # ===================================================================================
-# SHARED HELPERS
+# SHARED HELPERS  (used by both List and Detail serializers)
 # ===================================================================================
 
 def _get_media(obj, context):
+    """
+    FIXED: Safely fetches prefetched media and serializes with context.
+    - Uses .all() on the relation (hits prefetch cache, no extra query)
+    - Passes context so PostMediaSerializer can build absolute URLs
+    - Returns [] instead of crashing on any error
+    """
     from content.serializers import PostMediaSerializer
     try:
         media_qs = obj.media.all()
@@ -65,6 +60,10 @@ def _get_is_bookmarked(obj, context):
 
 
 def _get_comments_preview(obj, context):
+    """
+    FIXED: avatar_url now uses request for absolute URL when available,
+    falls back to relative URL — never returns None for existing avatars.
+    """
     if not hasattr(obj, 'comments'):
         return []
 
@@ -76,12 +75,12 @@ def _get_comments_preview(obj, context):
 
     result = []
     for c in top_comments:
+        # Build avatar URL safely
         if c.author.avatar:
             if request:
-                # ✅ FIXED: force HTTPS on avatar URLs too
-                avatar_url = _force_https(request.build_absolute_uri(c.author.avatar.url))
+                avatar_url = request.build_absolute_uri(c.author.avatar.url)
             else:
-                avatar_url = c.author.avatar.url
+                avatar_url = c.author.avatar.url  # ✅ relative fallback
         else:
             avatar_url = c.author.avatar_url_cached or ''
 
@@ -144,6 +143,7 @@ class PostListSerializer(serializers.ModelSerializer):
         return _get_is_bookmarked(obj, self.context)
 
     def get_media_count(self, obj):
+        # ✅ FIXED: was returning 0 when not prefetched
         try:
             return len(obj.media.all())
         except Exception:
@@ -207,12 +207,15 @@ class CreatePostSerializer(serializers.ModelSerializer):
         child=serializers.FileField(),
         required=False,
         write_only=True,
+        help_text="List of image/video files"
     )
 
     class Meta:
         model = Post
         fields = ['content', 'post_type', 'media_files']
-        extra_kwargs = {'post_type': {'required': False}}
+        extra_kwargs = {
+            'post_type': {'required': False}
+        }
 
     def validate(self, data):
         content = data.get('content', '').strip() if data.get('content') else ''
@@ -245,7 +248,10 @@ class CreatePostSerializer(serializers.ModelSerializer):
         media_files = validated_data.pop('media_files', [])
         request = self.context['request']
 
-        post = Post.objects.create(author=request.user, **validated_data)
+        post = Post.objects.create(
+            author=request.user,
+            **validated_data
+        )
 
         if media_files:
             media_objects = []
@@ -253,12 +259,20 @@ class CreatePostSerializer(serializers.ModelSerializer):
                 content_type = getattr(file, 'content_type', '')
                 is_image = content_type.startswith('image/')
                 media_type = 'image' if is_image else 'video'
-                media_obj = PostMedia(post=post, media_type=media_type, order=i)
+
+                media_obj = PostMedia(
+                    post=post,
+                    media_type=media_type,
+                    order=i
+                )
+
                 if is_image:
                     media_obj.image = file
                 else:
                     media_obj.video = file
+
                 media_objects.append(media_obj)
+
             PostMedia.objects.bulk_create(media_objects)
 
         return post
@@ -269,11 +283,17 @@ class CreatePostSerializer(serializers.ModelSerializer):
 # ===================================================================================
 
 class UpdatePostSerializer(serializers.ModelSerializer):
+    """
+    Serializer for updating posts.
+    Only allows updating content (not media or type).
+    """
+
     class Meta:
         model = Post
         fields = ['content']
 
     def update(self, instance, validated_data):
+        """Update post content only."""
         instance.content = validated_data.get('content', instance.content)
         instance.save(update_fields=['content', 'updated_at'])
         return instance
