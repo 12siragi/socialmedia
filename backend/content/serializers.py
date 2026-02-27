@@ -6,24 +6,15 @@ from .models import PostMedia
 class PostMediaSerializer(serializers.ModelSerializer):
     """
     Serializer for post media in feed/detail views.
-    
-    OPTIMIZATION:
-    - URLs built once per media (not in loops)
-    - Absolute URLs cached in response
-    - No file I/O during serialization (uses precomputed file_size)
-    
-    PERFORMANCE:
-    - Feed: 20 posts × 3 media = 60 media objects
-    - Without optimization: 60 file I/O operations
-    - With optimization: 0 file I/O (all precomputed) ✅
+
+    FIX: URL methods now fall back to relative URLs when request context
+    is missing, instead of returning None silently. This was the root
+    cause of media showing sometimes but not always.
     """
 
-    # Precompute absolute URLs
     image_url = serializers.SerializerMethodField()
     video_url = serializers.SerializerMethodField()
     thumbnail_url = serializers.SerializerMethodField()
-    
-    # Human-readable file size
     file_size_display = serializers.SerializerMethodField()
 
     class Meta:
@@ -51,33 +42,44 @@ class PostMediaSerializer(serializers.ModelSerializer):
     def get_image_url(self, obj):
         """
         Return absolute image URL.
-        
-        OPTIMIZATION: Called once per media, result cached in response.
+        FIXED: Falls back to relative URL instead of returning None
+        when request context is missing.
         """
+        if not obj.image:
+            return None
         request = self.context.get('request')
-        if obj.image and request:
+        if request:
             return request.build_absolute_uri(obj.image.url)
-        return None
+        return obj.image.url  # ✅ relative fallback — never returns None
 
     def get_video_url(self, obj):
-        """Return absolute video URL."""
+        """
+        Return absolute video URL.
+        FIXED: Falls back to relative URL instead of returning None.
+        """
+        if not obj.video:
+            return None
         request = self.context.get('request')
-        if obj.video and request:
+        if request:
             return request.build_absolute_uri(obj.video.url)
-        return None
+        return obj.video.url  # ✅ relative fallback
 
     def get_thumbnail_url(self, obj):
-        """Return absolute thumbnail URL for videos."""
+        """
+        Return absolute thumbnail URL for videos.
+        FIXED: Falls back to relative URL instead of returning None.
+        """
+        if not obj.thumbnail:
+            return None
         request = self.context.get('request')
-        if obj.thumbnail and request:
+        if request:
             return request.build_absolute_uri(obj.thumbnail.url)
-        return None
+        return obj.thumbnail.url  # ✅ relative fallback
 
     def get_file_size_display(self, obj):
         """Convert bytes to human-readable format."""
         if not obj.file_size:
             return "0 B"
-        
         size = obj.file_size
         for unit in ['B', 'KB', 'MB', 'GB']:
             if size < 1024:
@@ -89,11 +91,6 @@ class PostMediaSerializer(serializers.ModelSerializer):
 class CreatePostMediaSerializer(serializers.ModelSerializer):
     """
     Serializer for uploading media.
-    
-    VALIDATION:
-    - File size limits (images: 10MB, videos: 100MB)
-    - File type validation (extensions)
-    - Required fields
     """
 
     class Meta:
@@ -101,18 +98,6 @@ class CreatePostMediaSerializer(serializers.ModelSerializer):
         fields = ['media_type', 'image', 'video', 'order']
 
     def validate(self, data):
-        """
-        Validate file sizes and types.
-        
-        LIMITS:
-        - Images: 10MB (reasonable for modern images)
-        - Videos: 100MB (prevents server overload)
-        
-        GROWTH MANAGEMENT:
-        - Prevents abuse (users uploading huge files)
-        - Controls storage costs
-        """
-        # Validate image size
         if data.get('image'):
             max_size = 10 * 1024 * 1024  # 10MB
             if data['image'].size > max_size:
@@ -121,7 +106,6 @@ class CreatePostMediaSerializer(serializers.ModelSerializer):
                              f"Your file is {data['image'].size / (1024*1024):.1f}MB"
                 })
 
-        # Validate video size
         if data.get('video'):
             max_size = 100 * 1024 * 1024  # 100MB
             if data['video'].size > max_size:
