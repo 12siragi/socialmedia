@@ -3,18 +3,15 @@ from rest_framework import serializers
 from .models import PostMedia
 
 
-def _force_https(url):
-    """
-    Force HTTPS on any URL.
-    Needed because ngrok/backend builds http:// URLs but
-    frontend is on https:// (Vercel) — browser blocks mixed content.
-    """
-    if url and url.startswith('http://'):
-        return url.replace('http://', 'https://', 1)
-    return url
-
-
 class PostMediaSerializer(serializers.ModelSerializer):
+    """
+    Serializer for post media in feed/detail views.
+
+    FIX: URL methods now fall back to relative URLs when request context
+    is missing, instead of returning None silently. This was the root
+    cause of media showing sometimes but not always.
+    """
+
     image_url = serializers.SerializerMethodField()
     video_url = serializers.SerializerMethodField()
     thumbnail_url = serializers.SerializerMethodField()
@@ -43,30 +40,44 @@ class PostMediaSerializer(serializers.ModelSerializer):
         ]
 
     def get_image_url(self, obj):
+        """
+        Return absolute image URL.
+        FIXED: Falls back to relative URL instead of returning None
+        when request context is missing.
+        """
         if not obj.image:
             return None
         request = self.context.get('request')
         if request:
-            return _force_https(request.build_absolute_uri(obj.image.url))
-        return obj.image.url  # relative fallback
+            return request.build_absolute_uri(obj.image.url)
+        return obj.image.url  # ✅ relative fallback — never returns None
 
     def get_video_url(self, obj):
+        """
+        Return absolute video URL.
+        FIXED: Falls back to relative URL instead of returning None.
+        """
         if not obj.video:
             return None
         request = self.context.get('request')
         if request:
-            return _force_https(request.build_absolute_uri(obj.video.url))
-        return obj.video.url  # relative fallback
+            return request.build_absolute_uri(obj.video.url)
+        return obj.video.url  # ✅ relative fallback
 
     def get_thumbnail_url(self, obj):
+        """
+        Return absolute thumbnail URL for videos.
+        FIXED: Falls back to relative URL instead of returning None.
+        """
         if not obj.thumbnail:
             return None
         request = self.context.get('request')
         if request:
-            return _force_https(request.build_absolute_uri(obj.thumbnail.url))
-        return obj.thumbnail.url  # relative fallback
+            return request.build_absolute_uri(obj.thumbnail.url)
+        return obj.thumbnail.url  # ✅ relative fallback
 
     def get_file_size_display(self, obj):
+        """Convert bytes to human-readable format."""
         if not obj.file_size:
             return "0 B"
         size = obj.file_size
@@ -78,23 +89,29 @@ class PostMediaSerializer(serializers.ModelSerializer):
 
 
 class CreatePostMediaSerializer(serializers.ModelSerializer):
+    """
+    Serializer for uploading media.
+    """
+
     class Meta:
         model = PostMedia
         fields = ['media_type', 'image', 'video', 'order']
 
     def validate(self, data):
         if data.get('image'):
-            max_size = 10 * 1024 * 1024
+            max_size = 10 * 1024 * 1024  # 10MB
             if data['image'].size > max_size:
                 raise serializers.ValidationError({
                     'image': f"Image size cannot exceed 10MB. "
                              f"Your file is {data['image'].size / (1024*1024):.1f}MB"
                 })
+
         if data.get('video'):
-            max_size = 100 * 1024 * 1024
+            max_size = 100 * 1024 * 1024  # 100MB
             if data['video'].size > max_size:
                 raise serializers.ValidationError({
                     'video': f"Video size cannot exceed 100MB. "
                              f"Your file is {data['video'].size / (1024*1024):.1f}MB"
                 })
+
         return data

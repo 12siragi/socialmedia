@@ -1,46 +1,64 @@
 // src/components/Sidebar.jsx
+// Replaces Navbar entirely — TikTok/IG/X-style sidebar + mobile bottom bar
 import React, { memo, useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "./contexts/AuthContext";
 import useUserActions from "../hooks/user.actions";
 import "./css/Sidebar.css";
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL || '';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL;
 
 function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
-  const { logout } = useUserActions();
+  const { logout, getAccountSettings } = useUserActions();
 
+  const [avatarUrl, setAvatarUrl] = useState(null);
+  const [avatarKey, setAvatarKey] = useState(Date.now());
   const [collapsed, setCollapsed] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
   const isActive = (path) => location.pathname === path;
 
-  // ✅ FIXED: Build avatar URL directly from user object
-  // No API call needed — user already has avatar_url from auth context
-  const getAvatarUrl = () => {
-    if (!user) return getFallbackAvatar();
+  // Fetch avatar
+  useEffect(() => {
+    if (isAuthenticated && user) fetchAvatar();
+  }, [isAuthenticated, user?.id]);
 
-    if (user.avatar_url) {
-      if (user.avatar_url.startsWith('http')) return user.avatar_url;
-      const path = user.avatar_url.startsWith('/') ? user.avatar_url : `/${user.avatar_url}`;
-      return `${BACKEND_URL}${path}`;
+  useEffect(() => {
+    const handleAvatarUpdate = () => {
+      fetchAvatar();
+      setAvatarKey(Date.now());
+    };
+    window.addEventListener("avatarUpdated", handleAvatarUpdate);
+    return () => window.removeEventListener("avatarUpdated", handleAvatarUpdate);
+  }, [isAuthenticated, user]);
+
+  const fetchAvatar = async () => {
+    try {
+      const settings = await getAccountSettings();
+      if (settings?.avatar) {
+        const url = settings.avatar.startsWith("http")
+          ? settings.avatar
+          : `${BACKEND_URL}${settings.avatar}`;
+        setAvatarUrl(url);
+      } else if (settings?.avatar_url) {
+        const url = settings.avatar_url.startsWith("http")
+          ? settings.avatar_url
+          : `${BACKEND_URL}${settings.avatar_url}`;
+        setAvatarUrl(url);
+      } else {
+        setAvatarUrl(getFallbackAvatar(settings));
+      }
+    } catch {
+      setAvatarUrl(getFallbackAvatar());
     }
-
-    if (user.avatar) {
-      if (user.avatar.startsWith('http')) return user.avatar;
-      const path = user.avatar.startsWith('/') ? user.avatar : `/${user.avatar}`;
-      return `${BACKEND_URL}${path}`;
-    }
-
-    return getFallbackAvatar();
   };
 
-  const getFallbackAvatar = () => {
-    const firstName = user?.first_name || 'U';
-    const lastName = user?.last_name || '';
+  const getFallbackAvatar = (settings = null) => {
+    const firstName = settings?.first_name || user?.first_name || "U";
+    const lastName = settings?.last_name || user?.last_name || "";
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(firstName)}+${encodeURIComponent(lastName)}&background=7c3aed&color=fff&bold=true`;
   };
 
@@ -54,6 +72,7 @@ function Sidebar() {
     { to: "/settings", icon: "gear-fill", label: "Settings" },
   ];
 
+  // Bottom bar items (mobile) — most important 5
   const mobileItems = [
     { to: "/", icon: "house-door-fill", label: "Home" },
     { to: "/explore", icon: "compass-fill", label: "Explore" },
@@ -63,8 +82,6 @@ function Sidebar() {
   ];
 
   if (!isAuthenticated) return null;
-
-  const avatarUrl = getAvatarUrl();
 
   return (
     <>
@@ -102,7 +119,7 @@ function Sidebar() {
             </Link>
           ))}
 
-          {/* Create button */}
+          {/* Create / Post button */}
           <button
             className="pc-create-btn"
             onClick={() => navigate("/create")}
@@ -122,10 +139,11 @@ function Sidebar() {
           >
             <div className="pc-avatar-wrap">
               <img
-                src={avatarUrl}
+                key={avatarKey}
+                src={avatarUrl || getFallbackAvatar()}
                 alt="avatar"
                 className="pc-avatar"
-                onError={(e) => { e.target.src = getFallbackAvatar(); }}
+                onError={(e) => (e.target.src = getFallbackAvatar())}
               />
               <span className="pc-online-dot" />
             </div>
@@ -134,9 +152,7 @@ function Sidebar() {
                 <span className="pc-user-name">
                   {user?.first_name} {user?.last_name}
                 </span>
-                <span className="pc-user-handle">
-                  @{user?.username || user?.email?.split("@")[0]}
-                </span>
+                <span className="pc-user-handle">@{user?.username || user?.email?.split("@")[0]}</span>
               </div>
             )}
             {!collapsed && (
@@ -152,7 +168,7 @@ function Sidebar() {
                 className="pc-profile-menu-item"
                 onClick={() => setProfileMenuOpen(false)}
               >
-                <i className="bi bi-gear" /> Settings
+                <i className="bi bi-gear" /> add another extiting
               </Link>
               <div className="pc-profile-menu-divider" />
               <button
@@ -185,10 +201,9 @@ function Sidebar() {
             >
               {label === "Profile" ? (
                 <img
-                  src={avatarUrl}
+                  src={avatarUrl || getFallbackAvatar()}
                   alt="avatar"
                   className={`pc-bottom-avatar ${isActive(to) ? "active" : ""}`}
-                  onError={(e) => { e.target.src = getFallbackAvatar(); }}
                 />
               ) : (
                 <i className={`bi bi-${icon}`} />

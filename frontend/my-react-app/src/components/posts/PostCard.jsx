@@ -1,52 +1,100 @@
 // src/components/posts/PostCard.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, Image, Button, Dropdown } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import useUserActions from '../../hooks/user.actions';
 import { useAuth } from '../contexts/AuthContext';
 import '../css/PostCard.css';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL || '';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL ;
 
 function PostCard({ post, onUpdate, onDelete }) {
   const { user } = useAuth();
-  const { toggleLike, toggleBookmark, deletePost } = useUserActions();
-
+  const { toggleLike, toggleBookmark, deletePost, getAccountSettings } = useUserActions();
+  
   const [liked, setLiked] = useState(post.is_liked || false);
   const [likesCount, setLikesCount] = useState(post.likes_count || 0);
   const [bookmarked, setBookmarked] = useState(post.is_bookmarked || false);
   const [showComments, setShowComments] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [currentUserAvatar, setCurrentUserAvatar] = useState(null);
 
   const isAuthor = user?.id === post.author?.id;
 
-  // ✅ FIXED: No more API call per card — just use avatar_url from post data
+  // ✅ Load user avatar on mount
+  useEffect(() => {
+    if (user) {
+      loadUserAvatar();
+    }
+  }, [user?.id]);
+
+  // ✅ Listen for avatar update events
+  useEffect(() => {
+    const handleAvatarUpdate = () => {
+      console.log('PostCard: Avatar updated, refreshing...');
+      loadUserAvatar();
+    };
+
+    window.addEventListener('avatarUpdated', handleAvatarUpdate);
+    return () => window.removeEventListener('avatarUpdated', handleAvatarUpdate);
+  }, [user]);
+
+  const loadUserAvatar = async () => {
+    try {
+      const settings = await getAccountSettings();
+      if (settings?.avatar) {
+        const url = settings.avatar.startsWith('http') 
+          ? settings.avatar 
+          : `${BACKEND_URL}${settings.avatar}`;
+        setCurrentUserAvatar(url);
+      } else if (settings?.avatar_url) {
+        const url = settings.avatar_url.startsWith('http')
+          ? settings.avatar_url
+          : `${BACKEND_URL}${settings.avatar_url}`;
+        setCurrentUserAvatar(url);
+      }
+    } catch (error) {
+      console.error('Failed to load user avatar:', error);
+    }
+  };
+
   const getAvatarUrl = (author) => {
-    if (!author) {
-      return `https://ui-avatars.com/api/?name=User&background=8b5cf6&color=fff&bold=true`;
+    // If it's current user, use loaded avatar
+    if (author?.id === user?.id && currentUserAvatar) {
+      return currentUserAvatar;
     }
 
+    if (!author) return `https://ui-avatars.com/api/?name=User&background=8b5cf6&color=fff&bold=true`;
+    
     if (author.avatar_url) {
-      // Already absolute URL from backend (https fixed via settings.py)
       if (author.avatar_url.startsWith('http')) {
         return author.avatar_url;
       }
-      // Relative URL fallback
-      const path = author.avatar_url.startsWith('/') ? author.avatar_url : `/${author.avatar_url}`;
-      return `${BACKEND_URL}${path}`;
+      const url = author.avatar_url.startsWith('/') ? author.avatar_url : `/${author.avatar_url}`;
+      return `${BACKEND_URL}${url}`;
     }
-
+    
     const name = author.full_name || author.first_name || 'User';
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=8b5cf6&color=fff&bold=true`;
   };
 
   const getMediaUrl = (media) => {
     if (!media) return '';
+    
     const mediaUrl = media.image_url || media.video_url || media.thumbnail_url;
     if (!mediaUrl) return '';
-    if (mediaUrl.startsWith('http')) return mediaUrl;
-    const path = mediaUrl.startsWith('/') ? mediaUrl : `/${mediaUrl}`;
-    return `${BACKEND_URL}${path}`;
+    
+    // Fix URLs missing port
+    if (mediaUrl.startsWith('http://localhost/')) {
+      return mediaUrl.replace('http://localhost/', 'http://localhost:8080/');
+    }
+    
+    if (mediaUrl.startsWith('http')) {
+      return mediaUrl;
+    }
+    
+    const url = mediaUrl.startsWith('/') ? mediaUrl : `/${mediaUrl}`;
+    return `${BACKEND_URL}${url}`;
   };
 
   const getTimeAgo = (date) => {
@@ -154,7 +202,6 @@ function PostCard({ post, onUpdate, onDelete }) {
                     src={getMediaUrl(post.media[0])}
                     alt="Post media"
                     className="img-fluid rounded"
-                    onError={(e) => { e.target.style.display = 'none'; }}
                   />
                 ) : (
                   <video
@@ -173,7 +220,6 @@ function PostCard({ post, onUpdate, onDelete }) {
                         src={getMediaUrl(media)}
                         alt={`Media ${index + 1}`}
                         className="img-fluid"
-                        onError={(e) => { e.target.style.display = 'none'; }}
                       />
                     ) : (
                       <video src={getMediaUrl(media)} className="w-100" />
@@ -229,15 +275,7 @@ function PostCard({ post, onUpdate, onDelete }) {
         {showComments && (
           <div className="comment-input mt-3">
             <div className="d-flex gap-2">
-              <Image
-                src={getAvatarUrl(user)}
-                roundedCircle
-                width={32}
-                height={32}
-                onError={(e) => {
-                  e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.full_name || 'User')}&background=8b5cf6&color=fff&bold=true`;
-                }}
-              />
+              <Image src={getAvatarUrl(user)} roundedCircle width={32} height={32} />
               <input
                 type="text"
                 className="form-control"

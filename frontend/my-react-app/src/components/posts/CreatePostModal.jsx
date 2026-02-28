@@ -1,49 +1,71 @@
 // src/components/posts/CreatePostModal.jsx
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Modal, Form, Button, Alert, Image } from 'react-bootstrap';
 import { useAuth } from '../contexts/AuthContext';
 import useUserActions from '../../hooks/user.actions';
 import '../css/CreatePostModal.css';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL || '';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL;
 
 function CreatePostModal({ show, onClose, onSuccess }) {
   const { user } = useAuth();
-  const { createPost } = useUserActions();
+  const { createPost, getAccountSettings } = useUserActions();
 
   const [content, setContent] = useState('');
   const [mediaFiles, setMediaFiles] = useState([]);
   const [mediaPreviews, setMediaPreviews] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [currentUserAvatar, setCurrentUserAvatar] = useState(null);
 
   const fileInputRef = useRef(null);
 
-  // ✅ FIXED: No API call — read avatar directly from user in auth context
-  const getUserAvatar = () => {
-    if (!user) {
-      return `https://ui-avatars.com/api/?name=User&background=8b5cf6&color=fff&bold=true`;
+  // ✅ Load user avatar on mount
+  useEffect(() => {
+    if (show && user) {
+      loadUserAvatar();
     }
+  }, [show, user?.id]);
 
-    if (user.avatar_url) {
-      if (user.avatar_url.startsWith('http')) return user.avatar_url;
-      const path = user.avatar_url.startsWith('/') ? user.avatar_url : `/${user.avatar_url}`;
-      return `${BACKEND_URL}${path}`;
+  // ✅ Listen for avatar update events
+  useEffect(() => {
+    const handleAvatarUpdate = () => {
+      console.log('CreatePostModal: Avatar updated, refreshing...');
+      loadUserAvatar();
+    };
+
+    window.addEventListener('avatarUpdated', handleAvatarUpdate);
+    return () => window.removeEventListener('avatarUpdated', handleAvatarUpdate);
+  }, [user]);
+
+  const loadUserAvatar = async () => {
+    try {
+      const settings = await getAccountSettings();
+      if (settings?.avatar) {
+        const url = settings.avatar.startsWith('http') 
+          ? settings.avatar 
+          : `${BACKEND_URL}${settings.avatar}`;
+        setCurrentUserAvatar(url);
+      } else if (settings?.avatar_url) {
+        const url = settings.avatar_url.startsWith('http')
+          ? settings.avatar_url
+          : `${BACKEND_URL}${settings.avatar_url}`;
+        setCurrentUserAvatar(url);
+      }
+    } catch (error) {
+      console.error('Failed to load user avatar:', error);
     }
-
-    if (user.avatar) {
-      if (user.avatar.startsWith('http')) return user.avatar;
-      const path = user.avatar.startsWith('/') ? user.avatar : `/${user.avatar}`;
-      return `${BACKEND_URL}${path}`;
-    }
-
-    const name = user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'User';
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=8b5cf6&color=fff&bold=true`;
   };
 
+  const getUserAvatar = () => {
+    if (currentUserAvatar) return currentUserAvatar;
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.full_name || 'User')}&background=8b5cf6&color=fff&bold=true`;
+  };
+
+  // Handle file selection
   const handleFileSelect = (e) => {
     const files = Array.from(e.target.files);
-
+    
     if (files.length + mediaFiles.length > 10) {
       setError('Maximum 10 files allowed');
       return;
@@ -95,7 +117,7 @@ function CreatePostModal({ show, onClose, onSuccess }) {
       setContent('');
       setMediaFiles([]);
       setMediaPreviews([]);
-
+      
       if (onSuccess) onSuccess();
       if (onClose) onClose();
     } catch (err) {
@@ -140,7 +162,7 @@ function CreatePostModal({ show, onClose, onSuccess }) {
                 e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.full_name || 'User')}&background=8b5cf6&color=fff&bold=true`;
               }}
             />
-            <strong>{user?.full_name || `${user?.first_name || ''} ${user?.last_name || ''}`.trim()}</strong>
+            <strong>{user?.full_name}</strong>
           </div>
 
           {/* Content */}
