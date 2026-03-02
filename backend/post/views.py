@@ -12,6 +12,8 @@ from .serializers import (
     UpdatePostSerializer
 )
 
+from .pagination import PostCursorPagination
+
 
 class PostViewSet(viewsets.ModelViewSet):
     """
@@ -27,13 +29,9 @@ class PostViewSet(viewsets.ModelViewSet):
     - GET    /api/posts/user/:user_id/     → user_posts() → User's posts
     """
     permission_classes = [IsAuthenticated]
+    pagination_class = PostCursorPagination 
 
     def get_queryset(self):
-        """
-        Optimized queryset for all actions.
-        select_related + prefetch_related keeps query count to 4-5
-        regardless of how many posts are returned.
-        """
         return Post.objects.select_related(
             'author'
         ).prefetch_related(
@@ -43,15 +41,14 @@ class PostViewSet(viewsets.ModelViewSet):
             'comments__author'
         ).filter(
             is_active=True
-        )
-
+        ).order_by('-created_at')
+    
     def get_serializer_class(self):
         if self.action == 'create':
             return CreatePostSerializer
         elif self.action in ['update', 'partial_update']:
             return UpdatePostSerializer
-        return PostListSerializer  # list, retrieve, my_posts, user_posts
-
+        return PostListSerializer
     def _get_serializer_with_context(self, instance, many=False):
         """
         ✅ Helper: always use get_serializer() so DRF injects the full
@@ -67,11 +64,15 @@ class PostViewSet(viewsets.ModelViewSet):
         return serializer
 
     def list(self, request, *args, **kwargs):
-        """GET /api/posts/ — Feed, newest first"""
-        queryset = self.get_queryset().order_by('-created_at')
+        """GET /api/posts/ — Feed"""
+        queryset = self.get_queryset()
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
-
+    
     def retrieve(self, request, *args, **kwargs):
         """GET /api/posts/:id/ — Single post"""
         instance = self.get_object()
@@ -132,32 +133,20 @@ class PostViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='my')
     def my_posts(self, request):
-        """GET /api/posts/my/ — Current user's posts"""
-        queryset = self.get_queryset().filter(
-            author=request.user
-        ).order_by('-created_at')
+        queryset = self.get_queryset().filter(author=request.user)
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
     @action(detail=False, methods=['get'], url_path='user/(?P<user_id>[^/.]+)')
     def user_posts(self, request, user_id=None):
-        """GET /api/posts/user/:user_id/ — Specific user's posts"""
-        queryset = self.get_queryset().filter(
-            author_id=user_id
-        ).order_by('-created_at')
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
-    
-    @action(detail=False, methods=['get'], url_path='user/(?P<user_id>[^/.]+)')
-    def user_posts(self, request, user_id=None):
-        """
-        GET /api/posts/user/:user_id/
-        
-        Get posts by specific user
-        """
-        queryset = self.get_queryset().filter(
-            author_id=user_id
-        ).order_by('-created_at')
-        
+        queryset = self.get_queryset().filter(author_id=user_id)
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)

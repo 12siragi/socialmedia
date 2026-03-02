@@ -37,7 +37,7 @@ urlpatterns = [
     
     # API endpoints
     path("api/auth/", include("accounts.urls")),
-    path("api/post/", include("post.urls")),
+    path("api/posts/", include("post.urls")),
     path('api/likes/', include('likes.urls')),
     path("api/comment/", include("comment.urls")),
     path('api/bookmarks/', include('bookmarks.urls')),

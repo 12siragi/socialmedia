@@ -102,58 +102,55 @@ const setPassword = useCallback(async (newPassword, confirmPassword) => {
 
   const getAccountSettings = useCallback(async () => (await axiosService.get("/api/auth/account/settings/")).data, []);
 
-  // ----------------------
-  // POSTS
-  // ----------------------
-  const getPosts = useCallback(async () => {
-    const res = await axiosService.get("/api/post/");  // ✅ FIXED: /api/posts/ (plural)
-    return res.data;
-  }, []);
+// ----------------------
+// POSTS
+// ----------------------
+const getPosts = useCallback(async (cursor = null) => {
+  const url = cursor 
+    ? `/api/posts/?cursor=${new URL(cursor).searchParams.get('cursor')}` 
+    : `/api/posts/`;
+  const res = await axiosService.get(url);
+  return res.data;
+}, []);
 
-  const getPost = useCallback(async (postId) => {
-    const res = await axiosService.get(`/api/post/${postId}/`);  // ✅ FIXED
-    return res.data;
-  }, []);
+const getPost = useCallback(async (postId) => {
+  const res = await axiosService.get(`/api/posts/${postId}/`);
+  return res.data;
+}, []);
 
-  const createPost = useCallback(async (data) => {
-    const formData = new FormData();
-    
-    if (data.content) {
-      formData.append("content", data.content);
-    }
-    
-    if (data.media_files && data.media_files.length > 0) {
-      data.media_files.forEach((file) => {
-        formData.append("media_files", file);
-      });
-    }
+const createPost = useCallback(async (data) => {
+  const formData = new FormData();
+  if (data.content) formData.append("content", data.content);
+  if (data.media_files && data.media_files.length > 0) {
+    data.media_files.forEach((file) => formData.append("media_files", file));
+  }
+  const res = await axiosService.post("/api/posts/", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return res.data;
+}, []);
 
-    const res = await axiosService.post("/api/post/", formData, {  // ✅ FIXED
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-    return res.data;
-  }, []);
+const updatePost = useCallback(async (postId, data) => {
+  const res = await axiosService.put(`/api/posts/${postId}/`, data);
+  return res.data;
+}, []);
 
-  const updatePost = useCallback(async (postId, data) => {
-    const res = await axiosService.put(`/api/post/${postId}/`, data);  // ✅ FIXED
-    return res.data;
-  }, []);
+const deletePost = useCallback(async (postId) => {
+  const res = await axiosService.delete(`/api/posts/${postId}/`);
+  return res.data;
+}, []);
 
-  const deletePost = useCallback(async (postId) => {
-    const res = await axiosService.delete(`/api/post/${postId}/`);  // ✅ FIXED
-    return res.data;
-  }, []);
+const getMyPosts = useCallback(async (cursor = null) => {
+  const url = cursor ? `/api/posts/my/?cursor=${cursor}` : `/api/posts/my/`;
+  const res = await axiosService.get(url);
+  return res.data;
+}, []);
 
-  const getMyPosts = useCallback(async () => {
-    const res = await axiosService.get("/api/post/my/");  // ✅ FIXED
-    return res.data;
-  }, []);
-
-  const getUserPosts = useCallback(async (userId) => {
-    const res = await axiosService.get(`/api/post/user/${userId}/`);  // ✅ FIXED
-    return res.data;
-  }, []);
-
+const getUserPosts = useCallback(async (userId, cursor = null) => {
+  const url = cursor ? `/api/posts/user/${userId}/?cursor=${cursor}` : `/api/posts/user/${userId}/`;
+  const res = await axiosService.get(url);
+  return res.data;
+}, []);
   // ----------------------
   // LIKES
   // ----------------------
