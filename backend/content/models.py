@@ -12,20 +12,19 @@ import os
 
 class VideoCloudinaryStorage(MediaCloudinaryStorage):
     def url(self, name):
-        # Override URL to use video/upload instead of image/upload
         import cloudinary
         cloudinary_name = cloudinary.config().cloud_name
-        # Strip extension for Cloudinary public_id
-        public_id = name.rsplit('.', 1)[0]
-        return f"https://res.cloudinary.com/{cloudinary_name}/video/upload/v1/{public_id}"
+        # Use full name as public_id (no extension stripping)
+        return f"https://res.cloudinary.com/{cloudinary_name}/video/upload/v1/{name}"
 
     def _upload(self, name, content):
         import cloudinary.uploader
         options = {
             'resource_type': 'video',
-            'public_id': name.rsplit('.', 1)[0],
+            'public_id': name,  # ← keep full name, no stripping
         }
         return cloudinary.uploader.upload(content, **options)
+
 # ===================================================================================
 # UPLOAD PATH HELPERS
 # ===================================================================================
