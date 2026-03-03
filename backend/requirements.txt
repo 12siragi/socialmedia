@@ -24,3 +24,5 @@ django-redis==5.4.0
 social-auth-app-django
 celery==5.3.0
 redis==5.2.0
+cloudinary
+django-cloudinary-storage
