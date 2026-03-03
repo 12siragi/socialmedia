@@ -1,5 +1,4 @@
 // src/components/Sidebar.jsx
-// Replaces Navbar entirely — TikTok/IG/X-style sidebar + mobile bottom bar
 import React, { memo, useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "./contexts/AuthContext";
@@ -21,7 +20,6 @@ function Sidebar() {
 
   const isActive = (path) => location.pathname === path;
 
-  // Fetch avatar
   useEffect(() => {
     if (isAuthenticated && user) fetchAvatar();
   }, [isAuthenticated, user?.id]);
@@ -35,29 +33,37 @@ function Sidebar() {
     return () => window.removeEventListener("avatarUpdated", handleAvatarUpdate);
   }, [isAuthenticated, user]);
 
-const fetchAvatar = async () => {
-  try {
-    const settings = await getAccountSettings();
-    const url = settings?.avatar_url || settings?.avatar || '';
-    
-    if (!url) {
+  const fetchAvatar = async () => {
+    try {
+      const settings = await getAccountSettings();
+      const rawUrl = settings?.avatar_url || settings?.avatar || "";
+
+      if (!rawUrl) {
+        setAvatarUrl(getFallbackAvatar(settings));
+        return;
+      }
+
+      // External URLs (ui-avatars, google) — use as-is
+      if (rawUrl.startsWith("http") && !rawUrl.includes("/media/")) {
+        setAvatarUrl(rawUrl);
+        return;
+      }
+
+      // Extract /media/ path and prepend current BACKEND_URL
+      // This fixes stale ngrok/render URLs stored in DB or localStorage
+      const mediaIndex = rawUrl.indexOf("/media/");
+      if (mediaIndex !== -1) {
+        const path = rawUrl.substring(mediaIndex);
+        setAvatarUrl(`${BACKEND_URL}${path}?t=${Date.now()}`);
+        return;
+      }
+
       setAvatarUrl(getFallbackAvatar(settings));
-      return;
+    } catch (err) {
+      console.error("Avatar fetch failed:", err);
+      setAvatarUrl(getFallbackAvatar());
     }
-
-    // Always extract /media/ path and prepend current BACKEND_URL
-    if (url.includes('/media/')) {
-      const path = url.substring(url.indexOf('/media/'));
-      setAvatarUrl(`${BACKEND_URL}${path}`);
-      return;
-    }
-
-    // External URLs (ui-avatars, google) use as-is
-    setAvatarUrl(url);
-  } catch {
-    setAvatarUrl(getFallbackAvatar());
-  }
-};
+  };
 
   const getFallbackAvatar = (settings = null) => {
     const firstName = settings?.first_name || user?.first_name || "U";
@@ -75,7 +81,6 @@ const fetchAvatar = async () => {
     { to: "/settings", icon: "gear-fill", label: "Settings" },
   ];
 
-  // Bottom bar items (mobile) — most important 5
   const mobileItems = [
     { to: "/", icon: "house-door-fill", label: "Home" },
     { to: "/explore", icon: "compass-fill", label: "Explore" },
@@ -90,6 +95,7 @@ const fetchAvatar = async () => {
     <>
       {/* ─── DESKTOP SIDEBAR ───────────────────────────────────── */}
       <aside className={`pc-sidebar ${collapsed ? "collapsed" : ""}`}>
+
         {/* Brand */}
         <div className="pc-brand">
           <Link to="/" className="brand-logo">
@@ -122,11 +128,8 @@ const fetchAvatar = async () => {
             </Link>
           ))}
 
-          {/* Create / Post button */}
-          <button
-            className="pc-create-btn"
-            onClick={() => navigate("/create")}
-          >
+          {/* Create button */}
+          <button className="pc-create-btn" onClick={() => navigate("/create")}>
             <span className="pc-nav-icon">
               <i className="bi bi-plus-lg" />
             </span>
@@ -155,7 +158,9 @@ const fetchAvatar = async () => {
                 <span className="pc-user-name">
                   {user?.first_name} {user?.last_name}
                 </span>
-                <span className="pc-user-handle">@{user?.username || user?.email?.split("@")[0]}</span>
+                <span className="pc-user-handle">
+                  @{user?.username || user?.email?.split("@")[0]}
+                </span>
               </div>
             )}
             {!collapsed && (
@@ -171,7 +176,14 @@ const fetchAvatar = async () => {
                 className="pc-profile-menu-item"
                 onClick={() => setProfileMenuOpen(false)}
               >
-                <i className="bi bi-gear" /> add another extiting
+                <i className="bi bi-gear" /> Settings
+              </Link>
+              <Link
+                to={`/profile/${user?.id}/`}
+                className="pc-profile-menu-item"
+                onClick={() => setProfileMenuOpen(false)}
+              >
+                <i className="bi bi-person" /> View Profile
               </Link>
               <div className="pc-profile-menu-divider" />
               <button
@@ -207,6 +219,7 @@ const fetchAvatar = async () => {
                   src={avatarUrl || getFallbackAvatar()}
                   alt="avatar"
                   className={`pc-bottom-avatar ${isActive(to) ? "active" : ""}`}
+                  onError={(e) => (e.target.src = getFallbackAvatar())}
                 />
               ) : (
                 <i className={`bi bi-${icon}`} />
@@ -219,10 +232,7 @@ const fetchAvatar = async () => {
 
       {/* Overlay to close profile menu */}
       {profileMenuOpen && (
-        <div
-          className="pc-overlay"
-          onClick={() => setProfileMenuOpen(false)}
-        />
+        <div className="pc-overlay" onClick={() => setProfileMenuOpen(false)} />
       )}
     </>
   );
