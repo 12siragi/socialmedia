@@ -1,8 +1,8 @@
+from cloudinary_storage.storage import MediaCloudinaryStorage
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 from django.conf import settings
 import urllib.parse
-
 
 # ===================================================================================
 # UPLOAD PATH HELPER
@@ -11,15 +11,10 @@ import urllib.parse
 def user_directory_path(instance, filename):
     """
     Safe upload path for user avatars.
-
-    OPTIMIZATION: Uses user.pk to organize files by user
-    Avoids name collisions and makes cleanup easier
     """
     if instance.pk:
         return f"avatars/user_{instance.pk}/{filename}"
     return f"avatars/temp/{filename}"
-
-
 # ===================================================================================
 # CUSTOM USER MANAGER
 # ===================================================================================
@@ -156,6 +151,7 @@ class CustomUser(AbstractUser):
         upload_to=user_directory_path,
         blank=True,
         null=True,
+        storage=MediaCloudinaryStorage(),  
         help_text="User's profile picture"
     )
 

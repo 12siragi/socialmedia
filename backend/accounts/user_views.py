@@ -98,7 +98,7 @@ class UpdateProfileAPIView(APIView):
         # Save old avatar path for async deletion
         old_avatar_path = None
         if user.avatar:
-            old_avatar_path = user.avatar.path if hasattr(user.avatar, 'path') else None
+            old_avatar_name = user.avatar.name if user.avatar else None
 
         # Detect avatar removal
         remove_avatar = False
