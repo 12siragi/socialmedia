@@ -57,21 +57,15 @@ def update_user_cache(user):
     cache.delete(get_user_by_email_cache_key(user.email))
     cache.set(get_user_by_email_cache_key(user.email), user.id, USER_CACHE_TIMEOUT)
     logger.debug(f"Cache updated for user {user.id}")
-
+    
 def build_avatar_url(request, avatar):
     """
-    Build full avatar URL with domain.
-    
-    Args:
-        request: Django request object
-        avatar: ImageField object
-        
-    Returns:
-        str: Full avatar URL or None
+    Return relative avatar URL only.
+    Frontend prepends its own BACKEND_URL — avoids baking in stale ngrok/render hosts.
     """
     if not avatar:
         return None
-    
+    return avatar.url  # /media/avatars/user_155/image.jpg
     # Get scheme (http or https)
     request_scheme = 'https' if request.is_secure() else 'http'
     
