@@ -57,24 +57,12 @@ def update_user_cache(user):
     cache.delete(get_user_by_email_cache_key(user.email))
     cache.set(get_user_by_email_cache_key(user.email), user.id, USER_CACHE_TIMEOUT)
     logger.debug(f"Cache updated for user {user.id}")
-    
+
 def build_avatar_url(request, avatar):
-    """
-    Return relative avatar URL only.
-    Frontend prepends its own BACKEND_URL — avoids baking in stale ngrok/render hosts.
-    """
     if not avatar:
         return None
-    return avatar.url  # /media/avatars/user_155/image.jpg
-    # Get scheme (http or https)
-    request_scheme = 'https' if request.is_secure() else 'http'
-    
-    # Get host
-    host = request.get_host()
-    
-    # Build full URL
-    return f"{request_scheme}://{host}{avatar.url}"
-
+    url = avatar.url  # Cloudinary returns full https://res.cloudinary.com/... URL
+    return url
 
 # ===================================================================================
 # UPDATE PROFILE (AVATAR, NAME) - OPTIMIZED

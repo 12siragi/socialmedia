@@ -29,7 +29,6 @@ function Sidebar() {
   const fetchAvatar = useCallback(async () => {
     try {
       const settings = await getAccountSettings();
-      console.log('fetchAvatar settings:', settings);
       const rawUrl = settings?.avatar_url || settings?.avatar || "";
       console.log('rawUrl:', rawUrl);
 
@@ -38,22 +37,22 @@ function Sidebar() {
         return;
       }
 
-      // External URLs (ui-avatars, google) use as-is
-      if (rawUrl.startsWith("http") && !rawUrl.includes("/media/")) {
+      // Full URL (Cloudinary, ui-avatars, google) — use as-is
+      if (rawUrl.startsWith("http")) {
         setAvatarUrl(rawUrl);
         return;
       }
 
-      // Extract /media/ path and prepend current BACKEND_URL
-      // Fixes stale ngrok/render URLs baked into DB or localStorage
-      const mediaIndex = rawUrl.indexOf("/media/");
-      if (mediaIndex !== -1) {
-        const path = rawUrl.substring(mediaIndex);
-        setAvatarUrl(`${BACKEND_URL}${path}?t=${Date.now()}`);
+      // Has /media/ path — prepend BACKEND_URL
+      if (rawUrl.includes("/media/")) {
+        const path = rawUrl.substring(rawUrl.indexOf("/media/"));
+        setAvatarUrl(`${BACKEND_URL}${path}`);
         return;
       }
 
-      setAvatarUrl(getFallbackAvatar(settings));
+      // Cloudinary relative path without /media/ — prepend BACKEND_URL
+      setAvatarUrl(`${BACKEND_URL}${rawUrl}`);
+
     } catch (err) {
       console.error("Avatar fetch failed:", err);
       setAvatarUrl(getFallbackAvatar());
