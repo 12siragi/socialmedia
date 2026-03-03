@@ -25,10 +25,18 @@ class CustomUserSerializer(serializers.ModelSerializer):
     - No database queries during serialization
     """
     full_name = serializers.ReadOnlyField()
-    avatar_url = serializers.ReadOnlyField()  # Cached in DB
-    has_password = serializers.ReadOnlyField()  # O(1) check
-    is_oauth_user = serializers.ReadOnlyField()  # O(1) check
+    avatar_url = serializers.SerializerMethodField()  # ✅ already changed
+    has_password = serializers.ReadOnlyField()
+    is_oauth_user = serializers.ReadOnlyField()
     auth_provider = serializers.CharField(read_only=True)
+
+    def get_avatar_url(self, obj):  # ← ADD THIS METHOD
+        request = self.context.get('request')
+        if obj.avatar:
+            if request:
+                return request.build_absolute_uri(obj.avatar.url)
+            return obj.avatar.url
+        return obj.avatar_url_cached or ''
 
     class Meta:
         model = CustomUser
