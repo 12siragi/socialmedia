@@ -11,20 +11,21 @@ import os
 # ===================================================================================
 
 class VideoCloudinaryStorage(MediaCloudinaryStorage):
-    """
-    Custom Cloudinary storage for video files.
-    Cloudinary requires resource_type='video' for video uploads.
-    Without this, it throws 'Invalid image file' error.
-    """
+    def url(self, name):
+        # Override URL to use video/upload instead of image/upload
+        import cloudinary
+        cloudinary_name = cloudinary.config().cloud_name
+        # Strip extension for Cloudinary public_id
+        public_id = name.rsplit('.', 1)[0]
+        return f"https://res.cloudinary.com/{cloudinary_name}/video/upload/v1/{public_id}"
+
     def _upload(self, name, content):
         import cloudinary.uploader
         options = {
             'resource_type': 'video',
-            'public_id': name.rsplit('.', 1)[0],  # strip extension
+            'public_id': name.rsplit('.', 1)[0],
         }
         return cloudinary.uploader.upload(content, **options)
-
-
 # ===================================================================================
 # UPLOAD PATH HELPERS
 # ===================================================================================
