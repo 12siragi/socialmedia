@@ -29,7 +29,9 @@ function Sidebar() {
   const fetchAvatar = useCallback(async () => {
     try {
       const settings = await getAccountSettings();
+      console.log('fetchAvatar settings:', settings);
       const rawUrl = settings?.avatar_url || settings?.avatar || "";
+      console.log('rawUrl:', rawUrl);
 
       if (!rawUrl) {
         setAvatarUrl(getFallbackAvatar(settings));
