@@ -6,6 +6,27 @@ from django.core.validators import FileExtensionValidator
 import os
 
 
+
+# ===================================================================================
+# CLOUDINARY STORAGE BACKENDS
+# ===================================================================================
+
+class VideoCloudinaryStorage(MediaCloudinaryStorage):
+    """
+    Custom Cloudinary storage for video files.
+    Cloudinary requires resource_type='video' for video uploads.
+    Without this, it throws 'Invalid image file' error.
+    """
+    def _upload(self, name, content):
+        import cloudinary.uploader
+        options = {
+            'resource_type': 'video',
+            'public_id': name.rsplit('.', 1)[0],  # strip extension
+        }
+        return cloudinary.uploader.upload(content, **options)
+
+
+
 # ===================================================================================
 # UPLOAD PATH HELPERS
 # ===================================================================================
