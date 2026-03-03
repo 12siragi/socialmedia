@@ -47,9 +47,6 @@ class PostMediaSerializer(serializers.ModelSerializer):
         """
         if not obj.image:
             return None
-        request = self.context.get('request')
-        if request:
-            return request.build_absolute_uri(obj.image.url)
         return obj.image.url  # ✅ relative fallback — never returns None
 
     def get_video_url(self, obj):
@@ -59,10 +56,7 @@ class PostMediaSerializer(serializers.ModelSerializer):
         """
         if not obj.video:
             return None
-        request = self.context.get('request')
-        if request:
-            return request.build_absolute_uri(obj.video.url)
-        return obj.video.url  # ✅ relative fallback
+        return obj.video.url  
 
     def get_thumbnail_url(self, obj):
         """
@@ -71,10 +65,7 @@ class PostMediaSerializer(serializers.ModelSerializer):
         """
         if not obj.thumbnail:
             return None
-        request = self.context.get('request')
-        if request:
-            return request.build_absolute_uri(obj.thumbnail.url)
-        return obj.thumbnail.url  # ✅ relative fallback
+        return obj.thumbnail.url
 
     def get_file_size_display(self, obj):
         """Convert bytes to human-readable format."""

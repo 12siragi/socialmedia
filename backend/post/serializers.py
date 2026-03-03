@@ -18,10 +18,9 @@ class PostAuthorSerializer(serializers.ModelSerializer):
         fields = ['id', 'full_name', 'first_name', 'last_name', 'avatar_url']
 
     def get_avatar_url(self, obj):
-        request = self.context.get('request')
-        if obj.avatar and request:
-            return request.build_absolute_uri(obj.avatar.url)
-        return obj.avatar_url_cached or ''
+        if obj.avatar:
+            return obj.avatar.url  # ✅ relative URL fallback
+        return obj.avatar_url_cached or ''  # ✅ cached URL fallback
 
 
 # ===================================================================================

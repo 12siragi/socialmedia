@@ -1,70 +1,49 @@
 // src/pages/Home.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Container, Button, Spinner, Alert } from 'react-bootstrap';
 import Layout from '../components/Layout';
 import PostCard from '../components/posts/PostCard';
 import CreatePostModal from '../components/posts/CreatePostModal';
-import useUserActions from '../hooks/user.actions';
+import useFeed from '../hooks/useFeed';
 import '../components/css/Home.css';
 
 function Home() {
-  const { getPosts } = useUserActions();
+  const {
+    posts, loading, hasMore, error,
+    fetchPosts, loadMore, addPost, removePost, updatePost
+  } = useFeed();
 
-  const [posts, setPosts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const bottomRef = useRef(null);
 
-  // Load posts
+  // Initial load
   useEffect(() => {
-    loadPosts();
+    fetchPosts();
   }, []);
 
-  const loadPosts = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const data = await getPosts();
-      console.log('Loaded posts:', data); // ✅ Debug
-      
-      // ✅ Handle both array and object responses
-      if (Array.isArray(data)) {
-        setPosts(data);
-      } else if (data && Array.isArray(data.results)) {
-        setPosts(data.results);
-      } else {
-        console.error('Unexpected data format:', data);
-        setPosts([]);
-      }
-    } catch (err) {
-      console.error('Failed to load posts:', err);
-      setError(err.response?.data?.detail || 'Failed to load posts. Please try again.');
-    } finally {
-      setLoading(false);
+  // Infinite scroll via IntersectionObserver
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => { if (entries[0].isIntersecting && hasMore && !loading) loadMore(); },
+      { threshold: 0.1 }
+    );
+    if (bottomRef.current) observer.observe(bottomRef.current);
+    return () => observer.disconnect();
+  }, [loadMore, hasMore, loading]);
+
+  const handlePostCreated = (newPost) => {
+    if (newPost) {
+      addPost(newPost); // instant prepend — no refetch
+    } else {
+      fetchPosts(); // fallback: full reload
     }
-  };
-
-  // Handle post created
-  const handlePostCreated = () => {
-    console.log('Post created, reloading feed...');
-    loadPosts(); // Reload feed
-  };
-
-  // Handle post deleted
-  const handlePostDeleted = (postId) => {
-    setPosts(prev => prev.filter(p => p.id !== postId));
-  };
-
-  // Handle post updated
-  const handlePostUpdated = (post) => {
-    // TODO: Open edit modal
-    console.log('Edit post:', post);
+    setShowCreateModal(false);
   };
 
   return (
     <Layout>
       <Container className="home-container py-4">
+
         {/* Create post button */}
         <div className="create-post-section mb-4">
           <Button
@@ -78,49 +57,53 @@ function Home() {
           </Button>
         </div>
 
-        {/* Loading */}
-        {loading && (
-          <div className="text-center py-5">
-            <Spinner animation="border" variant="primary" />
-            <p className="mt-3 text-muted">Loading posts...</p>
-          </div>
-        )}
-
         {/* Error */}
         {error && (
-          <Alert variant="danger" dismissible onClose={() => setError(null)}>
+          <Alert variant="danger" dismissible onClose={() => {}}>
             {error}
           </Alert>
         )}
 
-        {/* Posts */}
-        {!loading && !error && (
-          <>
-            {posts.length === 0 ? (
-              <div className="text-center py-5">
-                <i className="bi bi-inbox display-1 text-muted"></i>
-                <h4 className="mt-3">No posts yet</h4>
-                <p className="text-muted">Be the first to share something!</p>
-                <Button
-                  variant="primary"
-                  onClick={() => setShowCreateModal(true)}
-                >
-                  Create Post
-                </Button>
-              </div>
-            ) : (
-              <div className="posts-list">
-                {posts.map(post => (
-                  <PostCard
-                    key={post.id}
-                    post={post}
-                    onUpdate={handlePostUpdated}
-                    onDelete={handlePostDeleted}
-                  />
-                ))}
-              </div>
-            )}
-          </>
+        {/* Empty state */}
+        {!loading && !error && posts.length === 0 && (
+          <div className="text-center py-5">
+            <i className="bi bi-inbox display-1 text-muted"></i>
+            <h4 className="mt-3">No posts yet</h4>
+            <p className="text-muted">Be the first to share something!</p>
+            <Button variant="primary" onClick={() => setShowCreateModal(true)}>
+              Create Post
+            </Button>
+          </div>
+        )}
+
+        {/* Posts list */}
+        <div className="posts-list">
+          {posts.map(post => (
+            <PostCard
+              key={post.id}
+              post={post}
+              onUpdate={updatePost}
+              onDelete={removePost}
+            />
+          ))}
+        </div>
+
+        {/* Loading spinner */}
+        {loading && (
+          <div className="text-center py-4">
+            <Spinner animation="border" variant="primary" />
+          </div>
+        )}
+
+        {/* Infinite scroll sentinel */}
+        <div ref={bottomRef} />
+
+        {/* End of feed */}
+        {!hasMore && posts.length > 0 && (
+          <p className="text-center text-muted py-3">
+            <i className="bi bi-check-circle me-2"></i>
+            You're all caught up!
+          </p>
         )}
 
         {/* Create Post Modal */}
@@ -129,6 +112,7 @@ function Home() {
           onClose={() => setShowCreateModal(false)}
           onSuccess={handlePostCreated}
         />
+
       </Container>
     </Layout>
   );

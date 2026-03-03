@@ -6,12 +6,12 @@ import useUserActions from '../../hooks/user.actions';
 import { useAuth } from '../contexts/AuthContext';
 import '../css/PostCard.css';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL ;
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL;
 
 function PostCard({ post, onUpdate, onDelete }) {
   const { user } = useAuth();
   const { toggleLike, toggleBookmark, deletePost, getAccountSettings } = useUserActions();
-  
+
   const [liked, setLiked] = useState(post.is_liked || false);
   const [likesCount, setLikesCount] = useState(post.likes_count || 0);
   const [bookmarked, setBookmarked] = useState(post.is_bookmarked || false);
@@ -21,20 +21,12 @@ function PostCard({ post, onUpdate, onDelete }) {
 
   const isAuthor = user?.id === post.author?.id;
 
-  // ✅ Load user avatar on mount
   useEffect(() => {
-    if (user) {
-      loadUserAvatar();
-    }
+    if (user) loadUserAvatar();
   }, [user?.id]);
 
-  // ✅ Listen for avatar update events
   useEffect(() => {
-    const handleAvatarUpdate = () => {
-      console.log('PostCard: Avatar updated, refreshing...');
-      loadUserAvatar();
-    };
-
+    const handleAvatarUpdate = () => loadUserAvatar();
     window.addEventListener('avatarUpdated', handleAvatarUpdate);
     return () => window.removeEventListener('avatarUpdated', handleAvatarUpdate);
   }, [user]);
@@ -42,59 +34,51 @@ function PostCard({ post, onUpdate, onDelete }) {
   const loadUserAvatar = async () => {
     try {
       const settings = await getAccountSettings();
-      if (settings?.avatar) {
-        const url = settings.avatar.startsWith('http') 
-          ? settings.avatar 
-          : `${BACKEND_URL}${settings.avatar}`;
-        setCurrentUserAvatar(url);
-      } else if (settings?.avatar_url) {
-        const url = settings.avatar_url.startsWith('http')
-          ? settings.avatar_url
-          : `${BACKEND_URL}${settings.avatar_url}`;
-        setCurrentUserAvatar(url);
+      const rawUrl = settings?.avatar_url || settings?.avatar || '';
+      if (!rawUrl) return;
+
+      // Cloudinary or external URL — use as-is
+      if (rawUrl.startsWith('http')) {
+        setCurrentUserAvatar(rawUrl);
+        return;
       }
+      // Relative path — prepend BACKEND_URL
+      setCurrentUserAvatar(`${BACKEND_URL}${rawUrl.startsWith('/') ? rawUrl : '/' + rawUrl}`);
     } catch (error) {
       console.error('Failed to load user avatar:', error);
     }
   };
 
   const getAvatarUrl = (author) => {
-    // If it's current user, use loaded avatar
-    if (author?.id === user?.id && currentUserAvatar) {
-      return currentUserAvatar;
-    }
+    // Current user — use freshly loaded avatar
+    if (author?.id === user?.id && currentUserAvatar) return currentUserAvatar;
 
     if (!author) return `https://ui-avatars.com/api/?name=User&background=8b5cf6&color=fff&bold=true`;
-    
-    if (author.avatar_url) {
-      if (author.avatar_url.startsWith('http')) {
-        return author.avatar_url;
-      }
-      const url = author.avatar_url.startsWith('/') ? author.avatar_url : `/${author.avatar_url}`;
-      return `${BACKEND_URL}${url}`;
+
+    const rawUrl = author.avatar_url || '';
+
+    if (!rawUrl) {
+      const name = author.full_name || author.first_name || 'User';
+      return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=8b5cf6&color=fff&bold=true`;
     }
-    
-    const name = author.full_name || author.first_name || 'User';
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=8b5cf6&color=fff&bold=true`;
+
+    // Cloudinary or external URL — use as-is
+    if (rawUrl.startsWith('http')) return rawUrl;
+
+    // Relative /media/ path — prepend BACKEND_URL
+    return `${BACKEND_URL}${rawUrl.startsWith('/') ? rawUrl : '/' + rawUrl}`;
   };
 
   const getMediaUrl = (media) => {
     if (!media) return '';
-    
-    const mediaUrl = media.image_url || media.video_url || media.thumbnail_url;
-    if (!mediaUrl) return '';
-    
-    // Fix URLs missing port
-    if (mediaUrl.startsWith('http://localhost/')) {
-      return mediaUrl.replace('http://localhost/', 'http://localhost:8080/');
-    }
-    
-    if (mediaUrl.startsWith('http')) {
-      return mediaUrl;
-    }
-    
-    const url = mediaUrl.startsWith('/') ? mediaUrl : `/${mediaUrl}`;
-    return `${BACKEND_URL}${url}`;
+    const rawUrl = media.image_url || media.video_url || media.thumbnail_url || '';
+    if (!rawUrl) return '';
+
+    // Cloudinary or external URL — use as-is
+    if (rawUrl.startsWith('http')) return rawUrl;
+
+    // Relative path — prepend BACKEND_URL
+    return `${BACKEND_URL}${rawUrl.startsWith('/') ? rawUrl : '/' + rawUrl}`;
   };
 
   const getTimeAgo = (date) => {
@@ -142,22 +126,22 @@ function PostCard({ post, onUpdate, onDelete }) {
     }
   };
 
+  const fallbackAvatar = (name) =>
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'User')}&background=8b5cf6&color=fff&bold=true`;
+
   return (
     <Card className="post-card mb-3">
       <Card.Body>
+
         {/* Header */}
         <div className="post-header d-flex justify-content-between align-items-start mb-3">
           <div className="d-flex align-items-center">
             <Link to={`/profile/${post.author?.id}/`} className="text-decoration-none">
               <Image
                 src={getAvatarUrl(post.author)}
-                roundedCircle
-                width={40}
-                height={40}
+                roundedCircle width={40} height={40}
                 className="me-2"
-                onError={(e) => {
-                  e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(post.author?.full_name || 'User')}&background=8b5cf6&color=fff&bold=true`;
-                }}
+                onError={(e) => { e.target.src = fallbackAvatar(post.author?.full_name); }}
               />
             </Link>
             <div>
@@ -204,11 +188,7 @@ function PostCard({ post, onUpdate, onDelete }) {
                     className="img-fluid rounded"
                   />
                 ) : (
-                  <video
-                    src={getMediaUrl(post.media[0])}
-                    controls
-                    className="w-100 rounded"
-                  />
+                  <video src={getMediaUrl(post.media[0])} controls className="w-100 rounded" />
                 )}
               </div>
             ) : (
@@ -216,11 +196,7 @@ function PostCard({ post, onUpdate, onDelete }) {
                 {post.media.slice(0, 4).map((media, index) => (
                   <div key={media.id} className="media-item">
                     {media.media_type === 'image' ? (
-                      <img
-                        src={getMediaUrl(media)}
-                        alt={`Media ${index + 1}`}
-                        className="img-fluid"
-                      />
+                      <img src={getMediaUrl(media)} alt={`Media ${index + 1}`} className="img-fluid" />
                     ) : (
                       <video src={getMediaUrl(media)} className="w-100" />
                     )}
@@ -237,11 +213,20 @@ function PostCard({ post, onUpdate, onDelete }) {
         {/* Actions */}
         <div className="post-actions d-flex justify-content-between align-items-center">
           <div className="d-flex gap-3">
-            <Button variant="link" className={`action-btn ${liked ? 'active' : ''}`} onClick={handleLike} disabled={loading}>
+            <Button
+              variant="link"
+              className={`action-btn ${liked ? 'active' : ''}`}
+              onClick={handleLike}
+              disabled={loading}
+            >
               <i className={`bi ${liked ? 'bi-heart-fill' : 'bi-heart'}`}></i>
               <span className="ms-1">{likesCount}</span>
             </Button>
-            <Button variant="link" className="action-btn" onClick={() => setShowComments(!showComments)}>
+            <Button
+              variant="link"
+              className="action-btn"
+              onClick={() => setShowComments(!showComments)}
+            >
               <i className="bi bi-chat"></i>
               <span className="ms-1">{post.comments_count || 0}</span>
             </Button>
@@ -249,7 +234,12 @@ function PostCard({ post, onUpdate, onDelete }) {
               <i className="bi bi-share"></i>
             </Button>
           </div>
-          <Button variant="link" className={`action-btn ${bookmarked ? 'active' : ''}`} onClick={handleBookmark} disabled={loading}>
+          <Button
+            variant="link"
+            className={`action-btn ${bookmarked ? 'active' : ''}`}
+            onClick={handleBookmark}
+            disabled={loading}
+          >
             <i className={`bi ${bookmarked ? 'bi-bookmark-fill' : 'bi-bookmark'}`}></i>
           </Button>
         </div>
@@ -275,12 +265,16 @@ function PostCard({ post, onUpdate, onDelete }) {
         {showComments && (
           <div className="comment-input mt-3">
             <div className="d-flex gap-2">
-              <Image src={getAvatarUrl(user)} roundedCircle width={32} height={32} />
+              <Image
+                src={getAvatarUrl(user)}
+                roundedCircle width={32} height={32}
+                onError={(e) => { e.target.src = fallbackAvatar(user?.full_name); }}
+              />
               <input
                 type="text"
                 className="form-control"
                 placeholder="Add a comment..."
-                onKeyPress={(e) => {
+                onKeyDown={(e) => {
                   if (e.key === 'Enter' && e.target.value.trim()) {
                     console.log('Add comment:', e.target.value);
                     e.target.value = '';
@@ -290,6 +284,7 @@ function PostCard({ post, onUpdate, onDelete }) {
             </div>
           </div>
         )}
+
       </Card.Body>
     </Card>
   );

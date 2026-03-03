@@ -1,4 +1,5 @@
 # content/models.py
+from cloudinary_storage.storage import MediaCloudinaryStorage
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.core.validators import FileExtensionValidator
@@ -123,6 +124,7 @@ class PostMedia(models.Model):
         upload_to=post_image_path,
         blank=True,
         null=True,
+        storage=MediaCloudinaryStorage(), 
         validators=[
             FileExtensionValidator(allowed_extensions=IMAGE_EXTENSIONS)
         ],
@@ -133,6 +135,7 @@ class PostMedia(models.Model):
         upload_to=post_video_path,
         blank=True,
         null=True,
+        storage=MediaCloudinaryStorage(),
         validators=[
             FileExtensionValidator(allowed_extensions=VIDEO_EXTENSIONS)
         ],

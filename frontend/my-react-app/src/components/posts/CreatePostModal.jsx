@@ -20,20 +20,12 @@ function CreatePostModal({ show, onClose, onSuccess }) {
 
   const fileInputRef = useRef(null);
 
-  // ✅ Load user avatar on mount
   useEffect(() => {
-    if (show && user) {
-      loadUserAvatar();
-    }
+    if (show && user) loadUserAvatar();
   }, [show, user?.id]);
 
-  // ✅ Listen for avatar update events
   useEffect(() => {
-    const handleAvatarUpdate = () => {
-      console.log('CreatePostModal: Avatar updated, refreshing...');
-      loadUserAvatar();
-    };
-
+    const handleAvatarUpdate = () => loadUserAvatar();
     window.addEventListener('avatarUpdated', handleAvatarUpdate);
     return () => window.removeEventListener('avatarUpdated', handleAvatarUpdate);
   }, [user]);
@@ -41,16 +33,12 @@ function CreatePostModal({ show, onClose, onSuccess }) {
   const loadUserAvatar = async () => {
     try {
       const settings = await getAccountSettings();
-      if (settings?.avatar) {
-        const url = settings.avatar.startsWith('http') 
-          ? settings.avatar 
-          : `${BACKEND_URL}${settings.avatar}`;
-        setCurrentUserAvatar(url);
-      } else if (settings?.avatar_url) {
-        const url = settings.avatar_url.startsWith('http')
-          ? settings.avatar_url
-          : `${BACKEND_URL}${settings.avatar_url}`;
-        setCurrentUserAvatar(url);
+      const rawUrl = settings?.avatar_url || settings?.avatar || '';
+      if (!rawUrl) return;
+      if (rawUrl.startsWith('http')) {
+        setCurrentUserAvatar(rawUrl);
+      } else {
+        setCurrentUserAvatar(`${BACKEND_URL}${rawUrl.startsWith('/') ? rawUrl : '/' + rawUrl}`);
       }
     } catch (error) {
       console.error('Failed to load user avatar:', error);
@@ -62,10 +50,9 @@ function CreatePostModal({ show, onClose, onSuccess }) {
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.full_name || 'User')}&background=8b5cf6&color=fff&bold=true`;
   };
 
-  // Handle file selection
   const handleFileSelect = (e) => {
     const files = Array.from(e.target.files);
-    
+
     if (files.length + mediaFiles.length > 10) {
       setError('Maximum 10 files allowed');
       return;
@@ -109,7 +96,8 @@ function CreatePostModal({ show, onClose, onSuccess }) {
       setLoading(true);
       setError(null);
 
-      await createPost({
+      // createPost returns the new post object from backend
+      const newPost = await createPost({
         content: content.trim(),
         media_files: mediaFiles
       });
@@ -117,9 +105,9 @@ function CreatePostModal({ show, onClose, onSuccess }) {
       setContent('');
       setMediaFiles([]);
       setMediaPreviews([]);
-      
-      if (onSuccess) onSuccess();
-      if (onClose) onClose();
+
+      // ✅ Pass new post to onSuccess so Home can prepend it instantly
+      if (onSuccess) onSuccess(newPost);
     } catch (err) {
       console.error('Create post error:', err);
       setError(err.response?.data?.detail || 'Failed to create post');
@@ -154,9 +142,7 @@ function CreatePostModal({ show, onClose, onSuccess }) {
           <div className="d-flex align-items-center mb-3">
             <Image
               src={getUserAvatar()}
-              roundedCircle
-              width={40}
-              height={40}
+              roundedCircle width={40} height={40}
               className="me-2"
               onError={(e) => {
                 e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.full_name || 'User')}&background=8b5cf6&color=fff&bold=true`;
@@ -188,11 +174,7 @@ function CreatePostModal({ show, onClose, onSuccess }) {
                     ) : (
                       <video src={preview.url} />
                     )}
-                    <button
-                      type="button"
-                      className="remove-btn"
-                      onClick={() => removeMedia(index)}
-                    >
+                    <button type="button" className="remove-btn" onClick={() => removeMedia(index)}>
                       <i className="bi bi-x-circle-fill"></i>
                     </button>
                   </div>
@@ -221,18 +203,12 @@ function CreatePostModal({ show, onClose, onSuccess }) {
               disabled={loading || (!content.trim() && mediaFiles.length === 0)}
             >
               {loading ? (
-                <>
-                  <span className="spinner-border spinner-border-sm me-2"></span>
-                  Posting...
-                </>
-              ) : (
-                'Post'
-              )}
+                <><span className="spinner-border spinner-border-sm me-2"></span>Posting...</>
+              ) : 'Post'}
             </Button>
           </div>
         </Form>
 
-        {/* Hidden file input */}
         <input
           ref={fileInputRef}
           type="file"
