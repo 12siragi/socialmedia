@@ -22,96 +22,64 @@ function AccountSettings() {
   const [settings, setSettings] = useState(null);
   const [error, setError] = useState(null);
   
-  // Modal states
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showChangeEmail, setShowChangeEmail] = useState(false);
   const [showDeleteAccount, setShowDeleteAccount] = useState(false);
 
-  // Error handler helper
   const handleApiError = (error, defaultMessage) => {
-    if (error.response) {
-      return error.response.data?.detail || defaultMessage;
-    } else if (error.request) {
-      return 'Network error. Please check your connection.';
-    }
+    if (error.response) return error.response.data?.detail || defaultMessage;
+    if (error.request) return 'Network error. Please check your connection.';
     return defaultMessage;
   };
 
-  // Load account settings
-  useEffect(() => {
-    loadSettings();
-  }, []);
+  useEffect(() => { loadSettings(); }, []);
 
   const loadSettings = async () => {
     try {
       setLoading(true);
       setError(null);
-      
       const settingsData = await getAccountSettings();
       setSettings(settingsData);
     } catch (err) {
-      console.error('Failed to load settings:', err);
-      const errorMessage = handleApiError(err, 'Failed to load account settings');
-      setError(errorMessage);
+      setError(handleApiError(err, 'Failed to load account settings'));
     } finally {
       setLoading(false);
     }
   };
 
-  const handleProfileUpdated = () => {
-    loadSettings(); // Refresh settings
-    setShowEditProfile(false);
-  };
+  const handleProfileUpdated = () => { loadSettings(); setShowEditProfile(false); };
+  const handlePasswordChanged = () => { setShowChangePassword(false); alert('Password changed successfully! Please login again.'); logout(); };
+  const handleEmailChanged = () => { loadSettings(); setShowChangeEmail(false); };
 
-  const handlePasswordChanged = () => {
-    setShowChangePassword(false);
-    alert('Password changed successfully! Please login again.');
-    logout();
-  };
-
-  const handleEmailChanged = () => {
-    loadSettings(); // Refresh to show unverified status
-    setShowChangeEmail(false);
-  };
-
-  // Helper to get user's first and last name from settings
-  const getFirstName = () => {
-    if (settings?.first_name) return settings.first_name;
-    return settings?.full_name?.split(' ')[0] || 'User';
-  };
-
+  const getFirstName = () => settings?.first_name || settings?.full_name?.split(' ')[0] || 'User';
   const getLastName = () => {
     if (settings?.last_name) return settings.last_name;
-    const nameParts = settings?.full_name?.split(' ') || [];
-    return nameParts.slice(1).join(' ') || '';
+    const parts = settings?.full_name?.split(' ') || [];
+    return parts.slice(1).join(' ') || '';
   };
 
-  // Get avatar URL with proper backend URL
   const getAvatarUrl = () => {
-    // 1. If uploaded avatar exists, use it
-    if (settings?.avatar) {
-      if (settings.avatar.startsWith('http')) {
-        return settings.avatar;
-      }
-      return `${BACKEND_URL}${settings.avatar}`;
+    const rawUrl = settings?.avatar_url || settings?.avatar || "";
+
+    if (!rawUrl) {
+      return `https://ui-avatars.com/api/?name=${encodeURIComponent(getFirstName())}+${encodeURIComponent(getLastName())}&background=8b5cf6&color=fff&bold=true`;
     }
-    
-    // 2. If cached avatar_url exists (from backend), use it
-    if (settings?.avatar_url) {
-      if (settings.avatar_url.startsWith('http')) {
-        return settings.avatar_url;
-      }
-      return `${BACKEND_URL}${settings.avatar_url}`;
+
+    // External URLs (ui-avatars, google) use as-is
+    if (rawUrl.startsWith("http") && !rawUrl.includes("/media/")) {
+      return rawUrl;
     }
-    
-    // 3. Fallback to ui-avatars.com
-    const firstName = getFirstName();
-    const lastName = getLastName();
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(firstName)}+${encodeURIComponent(lastName)}&background=8b5cf6&color=fff&bold=true`;
+
+    // Extract /media/ path and prepend current BACKEND_URL
+    const mediaIndex = rawUrl.indexOf("/media/");
+    if (mediaIndex !== -1) {
+      return `${BACKEND_URL}${rawUrl.substring(mediaIndex)}`;
+    }
+
+    return rawUrl;
   };
 
-  // Loading State
   if (loading) {
     return (
       <Layout>
@@ -124,15 +92,12 @@ function AccountSettings() {
     );
   }
 
-  // Error State
   if (error || !settings) {
     return (
       <Layout>
         <div className="text-center py-5">
           <p className="text-danger mb-3">{error || 'Failed to load settings'}</p>
-          <Button variant="primary" onClick={loadSettings}>
-            Retry
-          </Button>
+          <Button variant="primary" onClick={loadSettings}>Retry</Button>
         </div>
       </Layout>
     );
@@ -141,11 +106,9 @@ function AccountSettings() {
   return (
     <Layout>
       <div className="account-settings">
-        {/* Header */}
         <div className="settings-header mb-4">
           <h1 className="display-5 mb-2">
-            <i className="bi bi-gear me-2"></i>
-            Account Settings
+            <i className="bi bi-gear me-2"></i>Account Settings
           </h1>
           <p className="text-white">Manage your account preferences and security</p>
         </div>
@@ -155,28 +118,18 @@ function AccountSettings() {
           <Card.Body>
             <div className="d-flex justify-content-between align-items-center mb-3">
               <h5 className="card-title mb-0">
-                <i className="bi bi-person-circle me-2"></i>
-                Profile Information
+                <i className="bi bi-person-circle me-2"></i>Profile Information
               </h5>
-              <Button 
-                variant="outline-primary" 
-                size="sm" 
-                onClick={() => setShowEditProfile(true)}
-              >
-                <i className="bi bi-pencil me-2"></i>
-                Edit
+              <Button variant="outline-primary" size="sm" onClick={() => setShowEditProfile(true)}>
+                <i className="bi bi-pencil me-2"></i>Edit
               </Button>
             </div>
-
             <div className="d-flex align-items-center gap-3">
               <div className="user-avatar-wrapper">
                 <Image
                   src={getAvatarUrl()}
-                  roundedCircle
-                  width={80}
-                  height={80}
-                  alt="User avatar"
-                  className="user-avatar"
+                  roundedCircle width={80} height={80}
+                  alt="User avatar" className="user-avatar"
                   onError={(e) => {
                     e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(getFirstName())}+${encodeURIComponent(getLastName())}&background=8b5cf6&color=fff&bold=true`;
                   }}
@@ -186,16 +139,13 @@ function AccountSettings() {
               <div>
                 <h5 className="mb-1">{settings.full_name || 'User'}</h5>
                 <p className="text-white mb-1">{settings.email}</p>
-                {!settings.email_verified && (
+                {!settings.email_verified ? (
                   <span className="badge bg-warning text-dark">
-                    <i className="bi bi-exclamation-triangle me-1"></i>
-                    Email Not Verified
+                    <i className="bi bi-exclamation-triangle me-1"></i>Email Not Verified
                   </span>
-                )}
-                {settings.email_verified && (
+                ) : (
                   <span className="badge bg-success">
-                    <i className="bi bi-check-circle me-1"></i>
-                    Email Verified
+                    <i className="bi bi-check-circle me-1"></i>Email Verified
                   </span>
                 )}
               </div>
@@ -203,15 +153,12 @@ function AccountSettings() {
           </Card.Body>
         </Card>
 
-        {/* Email & Password Section */}
+        {/* Security Section */}
         <Card className="settings-card mb-4">
           <Card.Body>
             <h5 className="card-title mb-4">
-              <i className="bi bi-shield-lock me-2"></i>
-              Security
+              <i className="bi bi-shield-lock me-2"></i>Security
             </h5>
-
-            {/* Email */}
             <div className="mb-4 pb-3 border-bottom">
               <div className="d-flex justify-content-between align-items-start">
                 <div>
@@ -219,39 +166,26 @@ function AccountSettings() {
                   <p className="mb-1">{settings.email}</p>
                   {!settings.email_verified && (
                     <small className="text-warning">
-                      <i className="bi bi-exclamation-triangle me-1"></i>
-                      Please verify your email
+                      <i className="bi bi-exclamation-triangle me-1"></i>Please verify your email
                     </small>
                   )}
                 </div>
-                <Button 
-                  variant="outline-primary" 
-                  size="sm"
-                  onClick={() => setShowChangeEmail(true)}
-                >
+                <Button variant="outline-primary" size="sm" onClick={() => setShowChangeEmail(true)}>
                   Change
                 </Button>
               </div>
             </div>
-
-            {/* Password */}
-            {settings.has_password && (
+            {settings.has_password ? (
               <div className="d-flex justify-content-between align-items-start">
                 <div>
                   <label className="fw-semibold mb-1">Password</label>
                   <p className="mb-0">••••••••</p>
                 </div>
-                <Button 
-                  variant="outline-primary" 
-                  size="sm"
-                  onClick={() => setShowChangePassword(true)}
-                >
+                <Button variant="outline-primary" size="sm" onClick={() => setShowChangePassword(true)}>
                   Change
                 </Button>
               </div>
-            )}
-
-            {!settings.has_password && (
+            ) : (
               <div className="alert alert-info mb-0">
                 <i className="bi bi-info-circle me-2"></i>
                 <strong>Social Login Only</strong>
@@ -263,16 +197,13 @@ function AccountSettings() {
           </Card.Body>
         </Card>
 
-        {/* Connected Accounts Section */}
+        {/* Connected Accounts */}
         <Card className="settings-card mb-4">
           <Card.Body>
             <h5 className="card-title mb-3">
-              <i className="bi bi-link-45deg me-2"></i>
-              Connected Accounts
+              <i className="bi bi-link-45deg me-2"></i>Connected Accounts
             </h5>
-            <p className="text-white mb-0">
-              Connected accounts information will be available soon.
-            </p>
+            <p className="text-white mb-0">Connected accounts information will be available soon.</p>
           </Card.Body>
         </Card>
 
@@ -280,8 +211,7 @@ function AccountSettings() {
         <Card className="settings-card border-danger">
           <Card.Body>
             <h5 className="card-title text-danger mb-3">
-              <i className="bi bi-exclamation-triangle me-2"></i>
-              Danger Zone
+              <i className="bi bi-exclamation-triangle me-2"></i>Danger Zone
             </h5>
             <div className="d-flex justify-content-between align-items-start">
               <div>
@@ -290,41 +220,17 @@ function AccountSettings() {
                   Permanently delete your account and all associated data. This action cannot be undone.
                 </p>
               </div>
-              <Button 
-                variant="danger"
-                onClick={() => setShowDeleteAccount(true)}
-              >
-                <i className="bi bi-trash me-2"></i>
-                Delete
+              <Button variant="danger" onClick={() => setShowDeleteAccount(true)}>
+                <i className="bi bi-trash me-2"></i>Delete
               </Button>
             </div>
           </Card.Body>
         </Card>
 
-        {/* Modals */}
-        <EditProfileModal 
-          show={showEditProfile}
-          onClose={() => setShowEditProfile(false)}
-          onSuccess={handleProfileUpdated}
-        />
-        
-        <ChangePasswordModal 
-          show={showChangePassword}
-          onClose={() => setShowChangePassword(false)}
-          onSuccess={handlePasswordChanged}
-        />
-        
-        <ChangeEmailModal 
-          show={showChangeEmail}
-          onClose={() => setShowChangeEmail(false)}
-          onSuccess={handleEmailChanged}
-          currentEmail={settings?.email}
-        />
-        
-        <DeleteAccountModal 
-          show={showDeleteAccount}
-          onClose={() => setShowDeleteAccount(false)}
-        />
+        <EditProfileModal show={showEditProfile} onClose={() => setShowEditProfile(false)} onSuccess={handleProfileUpdated} />
+        <ChangePasswordModal show={showChangePassword} onClose={() => setShowChangePassword(false)} onSuccess={handlePasswordChanged} />
+        <ChangeEmailModal show={showChangeEmail} onClose={() => setShowChangeEmail(false)} onSuccess={handleEmailChanged} currentEmail={settings?.email} />
+        <DeleteAccountModal show={showDeleteAccount} onClose={() => setShowDeleteAccount(false)} />
       </div>
     </Layout>
   );

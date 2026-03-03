@@ -1,5 +1,5 @@
 // src/components/Sidebar.jsx
-import React, { memo, useState, useEffect } from "react";
+import React, { memo, useState, useEffect, useCallback } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "./contexts/AuthContext";
 import useUserActions from "../hooks/user.actions";
@@ -20,20 +20,13 @@ function Sidebar() {
 
   const isActive = (path) => location.pathname === path;
 
-  useEffect(() => {
-    if (isAuthenticated && user) fetchAvatar();
-  }, [isAuthenticated, user?.id]);
+  const getFallbackAvatar = useCallback((settings = null) => {
+    const firstName = settings?.first_name || user?.first_name || "U";
+    const lastName = settings?.last_name || user?.last_name || "";
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(firstName)}+${encodeURIComponent(lastName)}&background=7c3aed&color=fff&bold=true`;
+  }, [user]);
 
-  useEffect(() => {
-    const handleAvatarUpdate = () => {
-      fetchAvatar();
-      setAvatarKey(Date.now());
-    };
-    window.addEventListener("avatarUpdated", handleAvatarUpdate);
-    return () => window.removeEventListener("avatarUpdated", handleAvatarUpdate);
-  }, [isAuthenticated, user]);
-
-  const fetchAvatar = async () => {
+  const fetchAvatar = useCallback(async () => {
     try {
       const settings = await getAccountSettings();
       const rawUrl = settings?.avatar_url || settings?.avatar || "";
@@ -43,14 +36,14 @@ function Sidebar() {
         return;
       }
 
-      // External URLs (ui-avatars, google) — use as-is
+      // External URLs (ui-avatars, google) use as-is
       if (rawUrl.startsWith("http") && !rawUrl.includes("/media/")) {
         setAvatarUrl(rawUrl);
         return;
       }
 
       // Extract /media/ path and prepend current BACKEND_URL
-      // This fixes stale ngrok/render URLs stored in DB or localStorage
+      // Fixes stale ngrok/render URLs baked into DB or localStorage
       const mediaIndex = rawUrl.indexOf("/media/");
       if (mediaIndex !== -1) {
         const path = rawUrl.substring(mediaIndex);
@@ -63,13 +56,20 @@ function Sidebar() {
       console.error("Avatar fetch failed:", err);
       setAvatarUrl(getFallbackAvatar());
     }
-  };
+  }, [getAccountSettings, getFallbackAvatar]);
 
-  const getFallbackAvatar = (settings = null) => {
-    const firstName = settings?.first_name || user?.first_name || "U";
-    const lastName = settings?.last_name || user?.last_name || "";
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(firstName)}+${encodeURIComponent(lastName)}&background=7c3aed&color=fff&bold=true`;
-  };
+  useEffect(() => {
+    if (isAuthenticated && user) fetchAvatar();
+  }, [isAuthenticated, user?.id, fetchAvatar]);
+
+  useEffect(() => {
+    const handleAvatarUpdate = () => {
+      fetchAvatar();
+      setAvatarKey(Date.now());
+    };
+    window.addEventListener("avatarUpdated", handleAvatarUpdate);
+    return () => window.removeEventListener("avatarUpdated", handleAvatarUpdate);
+  }, [fetchAvatar]);
 
   const navItems = [
     { to: "/", icon: "house-door-fill", label: "Home" },
@@ -93,7 +93,7 @@ function Sidebar() {
 
   return (
     <>
-      {/* ─── DESKTOP SIDEBAR ───────────────────────────────────── */}
+      {/* DESKTOP SIDEBAR */}
       <aside className={`pc-sidebar ${collapsed ? "collapsed" : ""}`}>
 
         {/* Brand */}
@@ -172,18 +172,18 @@ function Sidebar() {
           {profileMenuOpen && (
             <div className="pc-profile-menu">
               <Link
-                to="/settings"
-                className="pc-profile-menu-item"
-                onClick={() => setProfileMenuOpen(false)}
-              >
-                <i className="bi bi-gear" /> Settings
-              </Link>
-              <Link
                 to={`/profile/${user?.id}/`}
                 className="pc-profile-menu-item"
                 onClick={() => setProfileMenuOpen(false)}
               >
                 <i className="bi bi-person" /> View Profile
+              </Link>
+              <Link
+                to="/settings"
+                className="pc-profile-menu-item"
+                onClick={() => setProfileMenuOpen(false)}
+              >
+                <i className="bi bi-gear" /> Settings
               </Link>
               <div className="pc-profile-menu-divider" />
               <button
@@ -197,7 +197,7 @@ function Sidebar() {
         </div>
       </aside>
 
-      {/* ─── MOBILE BOTTOM BAR ─────────────────────────────────── */}
+      {/* MOBILE BOTTOM BAR */}
       <nav className="pc-bottom-bar">
         {mobileItems.map(({ to, icon, label, isCreate }) =>
           isCreate ? (
