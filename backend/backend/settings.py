@@ -46,6 +46,8 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt.token_blacklist',
     'django_extensions',
     'social_django',
+    'cloudinary',
+    'cloudinary_storage',
     
     # Your apps
     'accounts',
@@ -175,8 +177,8 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 # MEDIA FILES
 # ===================================================================================
 
-MEDIA_URL = '/media/'
-MEDIA_ROOT = Path('/app/media')
+#  MEDIA_URL = '/media/'
+# MEDIA_ROOT = Path('/app/media')
 
 # ===================================================================================
 # CUSTOM USER MODEL
@@ -507,3 +509,21 @@ if not DEBUG:
 CORS_ALLOW_HEADERS = list(default_headers) + [
     "ngrok-skip-browser-warning",
 ]
+
+import cloudinary
+
+cloudinary.config(
+    cloud_name='dvcudmi4u',
+    api_key='445968533331943',
+    api_secret='81CeZsTUHnCui-CXUByBaaBnegI',
+    secure=True
+)
+
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': 'dvcudmi4u',
+    'API_KEY': '445968533331943',
+    'API_SECRET': '81CeZsTUHnCui-CXUByBaaBnegI',
+}
+
+# Use Cloudinary for all media uploads
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
