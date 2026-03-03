@@ -35,26 +35,29 @@ function Sidebar() {
     return () => window.removeEventListener("avatarUpdated", handleAvatarUpdate);
   }, [isAuthenticated, user]);
 
-  const fetchAvatar = async () => {
-    try {
-      const settings = await getAccountSettings();
-      if (settings?.avatar) {
-        const url = settings.avatar.startsWith("http")
-          ? settings.avatar
-          : `${BACKEND_URL}${settings.avatar}`;
-        setAvatarUrl(url);
-      } else if (settings?.avatar_url) {
-        const url = settings.avatar_url.startsWith("http")
-          ? settings.avatar_url
-          : `${BACKEND_URL}${settings.avatar_url}`;
-        setAvatarUrl(url);
-      } else {
-        setAvatarUrl(getFallbackAvatar(settings));
-      }
-    } catch {
-      setAvatarUrl(getFallbackAvatar());
+const fetchAvatar = async () => {
+  try {
+    const settings = await getAccountSettings();
+    const url = settings?.avatar_url || settings?.avatar || '';
+    
+    if (!url) {
+      setAvatarUrl(getFallbackAvatar(settings));
+      return;
     }
-  };
+
+    // Always extract /media/ path and prepend current BACKEND_URL
+    if (url.includes('/media/')) {
+      const path = url.substring(url.indexOf('/media/'));
+      setAvatarUrl(`${BACKEND_URL}${path}`);
+      return;
+    }
+
+    // External URLs (ui-avatars, google) use as-is
+    setAvatarUrl(url);
+  } catch {
+    setAvatarUrl(getFallbackAvatar());
+  }
+};
 
   const getFallbackAvatar = (settings = null) => {
     const firstName = settings?.first_name || user?.first_name || "U";
