@@ -33,6 +33,7 @@ ALLOWED_HOSTS = [
 # ===================================================================================
 
 INSTALLED_APPS = [
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -48,7 +49,11 @@ INSTALLED_APPS = [
     'social_django',
     'cloudinary',
     'cloudinary_storage',
-    
+    'channels',
+    'channels_redis',
+
+
+
     # Your apps
     'accounts',
     'post',
@@ -56,8 +61,22 @@ INSTALLED_APPS = [
     'content',
     'likes',
     'bookmarks',
+    'chat',
 ]
 
+
+ASGI_APPLICATION = 'backend.asgi.application'
+
+REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [REDIS_URL],  # Uses your existing REDIS_URL
+        },
+    },
+}
 
 # ===================================================================================
 # MIDDLEWARE (OPTIMIZED)

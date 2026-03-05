@@ -487,3 +487,34 @@ class AccountSettingsAPIView(APIView):
             "first_name": user.first_name,
             "last_name": user.last_name,
         }, status=status.HTTP_200_OK)
+    
+# ===================================================================================
+# USER SEARCH (for messaging - new conversation modal)
+# ===================================================================================
+
+class UserSearchView(APIView):
+    """
+    Search users by name or email.
+    GET /api/auth/users/search/?q=said
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        q = request.query_params.get('q', '').strip()
+        if len(q) < 2:
+            return Response([])
+
+        from django.db.models import Q
+        users = User.objects.filter(
+            Q(first_name__icontains=q) |
+            Q(last_name__icontains=q) |
+            Q(full_name__icontains=q) |
+            Q(email__icontains=q)
+        ).exclude(id=request.user.id).only(
+            'id', 'first_name', 'last_name', 'full_name',
+            'email', 'avatar', 'avatar_url_cached'
+        )[:10]
+
+        from .serializers import CustomUserSerializer
+        serializer = CustomUserSerializer(users, many=True, context={'request': request})
+        return Response(serializer.data)

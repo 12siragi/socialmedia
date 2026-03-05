@@ -9,9 +9,10 @@ import Login from "./pages/Login";
 import Registration from "./pages/Registration";
 import AccountSettings from "./pages/AccountSettings";
 
-
 // ✅ Lazy load everything else
 const Home = lazy(() => import("./pages/Home"));
+const Messages = lazy(() => import("./pages/Messages"));
+const Bookmarks = lazy(() => import("./pages/Bookmarks"));
 const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
 const CheckEmail = lazy(() => import("./pages/CheckEmail"));
 const EmailVerifyFailed = lazy(() => import("./pages/EmailVerifyFailed"));
@@ -23,10 +24,10 @@ const SocialLoginSuccess = lazy(() => import("./pages/SocialLoginSuccess"));
 
 // ✅ Loading component
 const PageLoader = () => (
-  <div style={{ 
-    display: 'flex', 
-    justifyContent: 'center', 
-    alignItems: 'center', 
+  <div style={{
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
     minHeight: '100vh',
     backgroundColor: '#0f1118'
   }}>
@@ -41,6 +42,7 @@ function App() {
     <AuthProvider>
       <Suspense fallback={<PageLoader />}>
         <Routes>
+
           {/* PUBLIC ROUTES */}
           <Route path="/login/" element={<Login />} />
           <Route path="/register/" element={<Registration />} />
@@ -52,26 +54,12 @@ function App() {
           <Route path="/forgot-password/" element={<ForgotPassword />} />
           <Route path="/reset-password/" element={<ResetPassword />} />
           <Route path="/reset-password-failed/" element={<ResetPasswordFailed />} />
-          
 
           {/* PROTECTED ROUTES */}
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <Home />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/settings/"
-            element={
-              <ProtectedRoute>
-                <AccountSettings />
-              </ProtectedRoute>
-            }
-          />
-
+          <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+          <Route path="/messages/" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
+          <Route path="/settings/" element={<ProtectedRoute><AccountSettings /></ProtectedRoute>} />
+          <Route path="/bookmarks/" element={<ProtectedRoute><Bookmarks /></ProtectedRoute>} />
 
           {/* 404 */}
           <Route
@@ -83,6 +71,7 @@ function App() {
               </div>
             }
           />
+
         </Routes>
       </Suspense>
     </AuthProvider>

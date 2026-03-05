@@ -35,6 +35,7 @@ from .user_views import (
     ChangeEmailAPIView,
     DeleteAccountAPIView,
     AccountSettingsAPIView,
+    UserSearchView,
 )
 
 # ===================================================================================
@@ -56,7 +57,7 @@ urlpatterns = [
     path('oauth/login/', OAuthLoginAPIView.as_view(), name='oauth-login'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
     path('user/', UserInfoAPIView.as_view(), name='user-info'),
-    
+    path('users/search/', UserSearchView.as_view(), name='user-search'),
     # ===================================================================================
     # EMAIL VERIFICATION
     # ===================================================================================
