@@ -100,6 +100,14 @@ function MessageBubble({ message, isOwn, showAvatar, currentUser, onReply, onDel
         </div>
       </div>
 
+      {/* TRUTH GATE: is_translated = True → show badge */}
+      {message.is_translated && !message.is_deleted && (
+        <div className="translated-badge">
+          <i className="bi bi-translate me-1" />
+          Translated
+        </div>
+      )}
+
       {/* TRUTH GATE: showActions = True && !is_deleted → action buttons */}
       {showActions && !message.is_deleted && (
         <div className={`message-actions ${isOwn ? "left" : "right"}`}>

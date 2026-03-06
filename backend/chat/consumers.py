@@ -210,6 +210,27 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'type': 'user.offline',
             'user_id': event['user_id'],
         }))
+    
+
+    async def chat_translation_ready(self, event):
+        """
+        Receives translated message from ai/signals.py.
+        Delivers to the correct user only.
+
+        TRUTH GATE:
+        for_user_id == self.user.id → True  → send to this connection
+        for_user_id != self.user.id → False → ignore (not for this user)
+        """
+        # Only send to the intended receiver
+        if event.get('for_user_id') != self.user.id:
+            return
+
+        await self.send(text_data=json.dumps({
+            'type': 'chat.translation.ready',
+            'message_id': event['message_id'],
+            'translated_content': event['translated_content'],
+            'target_language': event['target_language'],
+        }))
 
     # ─── DB helpers (sync_to_async) ──────────────────────────────────
 

@@ -40,6 +40,7 @@ class CustomUserManager(BaseUserManager):
 
         email = self.normalize_email(email)
         extra_fields.setdefault('auth_provider', 'email')
+        
 
         user = self.model(email=email, **extra_fields)
 
@@ -186,6 +187,19 @@ class CustomUser(AbstractUser):
         unique=True,
         db_index=True,
         help_text="Google OAuth user ID (sub claim from Google)"
+    )
+    LANG_CHOICES = [
+       
+        ("en", "English"),
+        
+        ("ar", "Arabic"),
+    
+]
+
+    preferred_language = models.CharField(
+        max_length=10,
+        choices=LANG_CHOICES,
+        default="en"
     )
 
     class Meta:

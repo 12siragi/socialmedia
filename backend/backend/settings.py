@@ -62,9 +62,10 @@ INSTALLED_APPS = [
     'likes',
     'bookmarks',
     'chat',
+    'ai',
 ]
 
-
+LIBRETRANSLATE_URL = os.environ.get('LIBRETRANSLATE_URL', 'http://libretranslate:5000')
 ASGI_APPLICATION = 'backend.asgi.application'
 
 REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')

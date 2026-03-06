@@ -165,13 +165,13 @@ function useMessaging() {
 
   // ─── WS Event Handler ────────────────────────────────────────────
 
+// ─── WS Event Handler ────────────────────────────────────────────
+
   const handleWSEvent = useCallback((data) => {
     switch (data.type) {
 
-      // NEW MESSAGE: True → append to messages, update conversation preview
       case 'chat.message':
         setMessages(prev => {
-          // Dedup — don't add if already exists (optimistic update)
           if (prev.find(m => m.id === data.message.id)) return prev;
           return [...prev, data.message];
         });
@@ -190,7 +190,6 @@ function useMessaging() {
               }
             : c
         ));
-        // Clear typing indicator for sender
         setTypingUsers(prev => {
           const next = { ...prev };
           delete next[data.message.sender.id];
@@ -198,7 +197,6 @@ function useMessaging() {
         });
         break;
 
-      // TYPING: True/False indicator — not saved to DB
       case 'chat.typing':
         setTypingUsers(prev => {
           if (data.is_typing) {
@@ -211,7 +209,6 @@ function useMessaging() {
         });
         break;
 
-      // READ RECEIPT: mark messages as read by user
       case 'chat.read':
         setMessages(prev => prev.map(m =>
           data.message_ids.includes(m.id)
@@ -220,14 +217,33 @@ function useMessaging() {
         ));
         break;
 
-      // DELETE: soft delete — replace content with null
       case 'chat.message.delete':
         setMessages(prev => prev.map(m =>
           m.id === data.message_id ? { ...m, is_deleted: true, content: null } : m
         ));
         break;
 
-      // ONLINE/OFFLINE
+      // ── AI TRANSLATION ───────────────────────────────────────────
+      // TRUTH GATE:
+      // message_id matches = True  → update content in-place
+      // message_id no match = False → leave unchanged
+      // is_translated = True → MessageBubble shows translate badge
+      // original_content saved → user can toggle "see original"
+      case 'chat.translation.ready':
+        setMessages(prev => prev.map(m =>
+          m.id === data.message_id
+            ? {
+                ...m,
+                content: data.translated_content,  // Receiver sees translation
+                original_content: m.content,        // Original preserved for toggle
+                is_translated: true,                // True → show badge
+                target_language: data.target_language,
+              }
+            : m
+        ));
+        break;
+      // ─────────────────────────────────────────────────────────────
+
       case 'user.online':
         setOnlineUsers(prev => new Set([...prev, data.user_id]));
         break;
