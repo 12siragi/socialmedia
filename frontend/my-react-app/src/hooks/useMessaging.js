@@ -246,6 +246,23 @@ function useMessaging() {
         break;
     }
   }, []);
+  // ── AI Translation ───────────────────────────────────────────
+  // TRUTH GATE:
+  // API ok   = True  → returns translated string
+  // API fail = False → returns null (MessageInput falls back to original)
+  const translateText = useCallback(async (text, targetLang = 'ar') => {
+    try {
+      const res = await axiosService.post('/api/ai/translate/', {
+        text,
+        source_lang: 'en',
+        target_lang: targetLang,
+      });
+      return res.data.translated_text || null;
+    } catch (err) {
+      console.error('translateText error:', err);
+      return null; // False → caller uses original
+    }
+  }, []);
 
   // FIX: Keep the ref in sync with the latest handleWSEvent on every render
   useEffect(() => {
@@ -360,6 +377,7 @@ function useMessaging() {
     sendReadReceipts,
     deleteMessage,
     disconnectWS,
+    translateText, 
   };
 }
 

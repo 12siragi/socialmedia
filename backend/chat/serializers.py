@@ -11,7 +11,7 @@ class ParticipantUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'full_name', 'first_name', 'last_name', 'avatar_url']
+        fields = ['id', 'full_name', 'first_name', 'last_name', 'avatar_url', 'preferred_language']
 
     def get_avatar_url(self, obj):
         if obj.avatar:

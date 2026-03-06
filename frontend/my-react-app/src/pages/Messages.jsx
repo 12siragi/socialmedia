@@ -8,13 +8,6 @@ import ChatWindow from "../components/messaging/ChatWindow";
 import NewConversationModal from "../components/messaging/NewConversationModal";
 import "../components/css/Messages.css";
 
-// =============================================================================
-// TRUTH LAYER 2: Conditional rendering based on state truths
-// activeConversation = True  → show ChatWindow
-// activeConversation = False → show empty state
-// showNewModal = True        → show modal
-// =============================================================================
-
 function Messages() {
   const { user } = useAuth();
   const [showNewModal, setShowNewModal] = useState(false);
@@ -39,9 +32,9 @@ function Messages() {
     sendReadReceipts,
     deleteMessage,
     disconnectWS,
+    translateText,  // ← FIX: was missing
   } = useMessaging();
 
-  // EFFECT CONNECTION: component mounts → load conversations
   useEffect(() => {
     loadConversations();
     return () => disconnectWS();
@@ -57,7 +50,6 @@ function Messages() {
     <Layout>
       <div className="messages-page">
 
-        {/* LEFT: Conversation list */}
         <div className="messages-sidebar">
           <div className="messages-sidebar-header">
             <h5 className="mb-0">Messages</h5>
@@ -70,10 +62,7 @@ function Messages() {
             </button>
           </div>
 
-          {/* TRUTH GATE: error = True → show error */}
-          {error && (
-            <div className="messages-error">{error}</div>
-          )}
+          {error && <div className="messages-error">{error}</div>}
 
           <ConversationList
             conversations={conversations}
@@ -85,9 +74,7 @@ function Messages() {
           />
         </div>
 
-        {/* RIGHT: Chat window or empty state */}
         <div className="messages-main">
-          {/* TRUTH GATE: activeConversation = True → ChatWindow, False → placeholder */}
           {activeConversation ? (
             <ChatWindow
               conversation={activeConversation}
@@ -102,6 +89,7 @@ function Messages() {
               onTyping={sendTyping}
               onReadReceipts={sendReadReceipts}
               onDelete={deleteMessage}
+              onTranslate={translateText}  // ← FIX: was missing
               onLoadMore={() => {
                 const oldest = messages[0];
                 if (oldest) loadMessages(activeConversation.id, oldest.id);
@@ -122,7 +110,6 @@ function Messages() {
 
       </div>
 
-      {/* TRUTH GATE: showNewModal = True → render modal */}
       {showNewModal && (
         <NewConversationModal
           show={showNewModal}

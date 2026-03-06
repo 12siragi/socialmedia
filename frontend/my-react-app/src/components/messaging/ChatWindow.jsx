@@ -4,40 +4,29 @@ import { Spinner } from "react-bootstrap";
 import MessageBubble from "./MessageBubble";
 import MessageInput from "./MessageInput";
 
-// =============================================================================
-// TRUTH LAYER 1: ChatWindow state truths
-// messages: True if loaded
-// wsConnected: True = live, False = offline (show indicator)
-// hasMore: True = more messages above
-// typingUsers: True if object has keys
-// =============================================================================
-
 function ChatWindow({
   conversation, messages, currentUser, wsConnected,
   loading, hasMore, typingUsers, onlineUsers,
-  onSend, onTyping, onReadReceipts, onDelete, onLoadMore
+  onSend, onTyping, onReadReceipts, onDelete, onLoadMore,
+  onTranslate,
 }) {
   const bottomRef = useRef(null);
-  const topRef = useRef(null);
-  const [replyTo, setReplyTo] = useState(null); // True if replying
+  const topRef    = useRef(null);
+  const [replyTo, setReplyTo] = useState(null);
 
-  // EFFECT CONNECTION: new messages → scroll to bottom
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
 
-  // EFFECT CONNECTION: messages loaded → send read receipts
   useEffect(() => {
     if (messages.length === 0) return;
     const unread = messages
       .filter(m => !m.is_deleted && m.sender?.id !== currentUser?.id)
       .filter(m => !m.read_by?.some(r => r.user?.id === currentUser?.id))
       .map(m => m.id);
-
     if (unread.length > 0) onReadReceipts(unread);
   }, [messages]);
 
-  // EFFECT CONNECTION: top of messages → IntersectionObserver for load more
   useEffect(() => {
     if (!hasMore) return;
     const observer = new IntersectionObserver(
@@ -48,9 +37,21 @@ function ChatWindow({
     return () => observer.disconnect();
   }, [hasMore, onLoadMore]);
 
+  // FIX: Use == (loose equality) so "123" == 123 → true
+  // Prevents type mismatch between currentUser.id (string from JWT)
+  // and participant.id (number from API)
   const getOtherParticipant = () => {
     if (conversation.is_group) return null;
-    return conversation.participants?.find(p => p.id !== currentUser?.id);
+    // eslint-disable-next-line eqeqeq
+    return conversation.participants?.find(p => p.id != currentUser?.id);
+  };
+
+  const getReceiverLanguage = () => {
+    if (conversation.is_group) return null;
+    const other = getOtherParticipant();
+    const lang = other?.preferred_language || 'en';
+    console.debug('[ChatWindow] receiver:', other?.full_name, '| lang:', lang); // debug
+    return lang;
   };
 
   const getHeaderTitle = () => {
@@ -60,10 +61,7 @@ function ChatWindow({
 
   const getHeaderSubtitle = () => {
     const other = getOtherParticipant();
-    // TRUTH GATE: isOnline = True → "Online", False → "Offline"
-    if (other) {
-      return onlineUsers.has(other.id) ? "Online" : "Offline";
-    }
+    if (other) return onlineUsers.has(other.id) ? "Online" : "Offline";
     return `${conversation.participants?.length || 0} members`;
   };
 
@@ -76,12 +74,13 @@ function ChatWindow({
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(other?.full_name || "U")}&background=7c3aed&color=fff&bold=true`;
   };
 
-  const typingList = Object.values(typingUsers);
-  const isTyping = typingList.length > 0; // True if anyone typing
+  const typingList  = Object.values(typingUsers);
+  const isTyping    = typingList.length > 0;
+  const receiverLang = getReceiverLanguage();
 
   const handleSend = useCallback(async (payload) => {
     await onSend({ ...payload, replyTo: replyTo?.id });
-    setReplyTo(null); // clear reply after send
+    setReplyTo(null);
   }, [onSend, replyTo]);
 
   return (
@@ -92,7 +91,6 @@ function ChatWindow({
         <div className="d-flex align-items-center gap-2">
           <div className="chat-header-avatar-wrap">
             <img src={getHeaderAvatar()} alt="" className="chat-header-avatar" />
-            {/* TRUTH GATE: other user online → green dot */}
             {!conversation.is_group && onlineUsers.has(getOtherParticipant()?.id) && (
               <span className="online-dot" />
             )}
@@ -105,7 +103,6 @@ function ChatWindow({
           </div>
         </div>
 
-        {/* TRUTH GATE: wsConnected = False → show offline pill */}
         {!wsConnected && (
           <span className="ws-offline-pill">
             <i className="bi bi-wifi-off me-1" />
@@ -114,33 +111,26 @@ function ChatWindow({
         )}
       </div>
 
-      {/* Messages area */}
+      {/* Messages */}
       <div className="chat-messages">
-
-        {/* Load more sentinel */}
         <div ref={topRef} />
 
-        {/* TRUTH GATE: loading = True → spinner at top */}
         {loading && (
           <div className="text-center py-3">
             <Spinner animation="border" size="sm" variant="primary" />
           </div>
         )}
 
-        {/* TRUTH GATE: no messages → empty state */}
         {!loading && messages.length === 0 && (
           <div className="chat-empty">
             <p className="text-muted">No messages yet. Say hello! 👋</p>
           </div>
         )}
 
-        {/* Messages */}
         {messages.map((msg, index) => {
-          const isOwn = msg.sender?.id === currentUser?.id;
-          const prevMsg = messages[index - 1];
-          // GROUP TRUTH: same sender as prev → compact (no avatar repeat)
+          const isOwn      = msg.sender?.id === currentUser?.id;
+          const prevMsg    = messages[index - 1];
           const showAvatar = !prevMsg || prevMsg.sender?.id !== msg.sender?.id;
-
           return (
             <MessageBubble
               key={msg.id}
@@ -154,12 +144,9 @@ function ChatWindow({
           );
         })}
 
-        {/* TRUTH GATE: isTyping = True → typing indicator */}
         {isTyping && (
           <div className="typing-indicator">
-            <span className="typing-dots">
-              <span /><span /><span />
-            </span>
+            <span className="typing-dots"><span /><span /><span /></span>
             <span className="typing-text">
               {typingList.length === 1
                 ? `${typingList[0]} is typing`
@@ -172,7 +159,6 @@ function ChatWindow({
       </div>
 
       {/* Reply preview */}
-      {/* TRUTH GATE: replyTo = True → show reply bar */}
       {replyTo && (
         <div className="reply-preview">
           <div className="reply-preview-content">
@@ -192,6 +178,8 @@ function ChatWindow({
         onSend={handleSend}
         onTyping={onTyping}
         wsConnected={wsConnected}
+        onTranslate={!conversation.is_group ? onTranslate : null}
+        receiverLanguage={receiverLang || 'en'}
       />
     </div>
   );

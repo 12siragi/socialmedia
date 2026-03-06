@@ -42,6 +42,7 @@ urlpatterns = [
     path("api/comment/", include("comment.urls")),
     path('api/bookmarks/', include('bookmarks.urls')),
     path("api/messaging/", include("chat.urls")),
+    path('api/ai/', include('ai.urls')),
 ]
 
 # Serve media files in development only
