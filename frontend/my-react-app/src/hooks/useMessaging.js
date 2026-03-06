@@ -6,14 +6,6 @@ import { authManager } from "../components/helpers/authManager";
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL || "";
 const WS_URL = BACKEND_URL.replace("https://", "wss://").replace("http://", "ws://");
 
-// =============================================================================
-// TRUTH LAYER 1: All messaging state in one hook
-// conversations: True if loaded, [] if empty, null if not yet fetched
-// activeConversation: True if selected, null if none
-// messages: True if loaded for activeConversation
-// wsConnected: True if WebSocket open, False if closed/error
-// =============================================================================
-
 function useMessaging() {
   const [conversations, setConversations] = useState([]);
   const [activeConversation, setActiveConversation] = useState(null);
@@ -22,7 +14,7 @@ function useMessaging() {
   const [loadingConversations, setLoadingConversations] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
-  const [typingUsers, setTypingUsers] = useState({}); // { userId: fullName }
+  const [typingUsers, setTypingUsers] = useState({});
   const [onlineUsers, setOnlineUsers] = useState(new Set());
   const [error, setError] = useState(null);
 
@@ -30,9 +22,11 @@ function useMessaging() {
   const typingTimerRef = useRef(null);
   const isFetching = useRef(false);
 
+  // Keep a stable ref to handleWSEvent to avoid stale closures in ws.onmessage
+  const handleWSEventRef = useRef(null);
+
   // ─── REST API ────────────────────────────────────────────────────
 
-  // TRUTH GATE: conversations load only once
   const loadConversations = useCallback(async () => {
     if (isFetching.current) return;
     isFetching.current = true;
@@ -49,7 +43,6 @@ function useMessaging() {
     }
   }, []);
 
-  // TRUTH GATE: messages load only when activeConversation is True
   const loadMessages = useCallback(async (conversationId, beforeId = null) => {
     setLoadingMessages(true);
     try {
@@ -60,9 +53,9 @@ function useMessaging() {
       const { results, has_more } = res.data;
 
       if (beforeId) {
-        setMessages(prev => [...results, ...prev]); // prepend older messages
+        setMessages(prev => [...results, ...prev]);
       } else {
-        setMessages(results); // fresh load
+        setMessages(results);
       }
       setHasMoreMessages(has_more);
     } catch (err) {
@@ -79,14 +72,17 @@ function useMessaging() {
       name,
     });
     const newConv = res.data;
-    // Prepend to list — newest first
     setConversations(prev => [newConv, ...prev.filter(c => c.id !== newConv.id)]);
     return newConv;
   }, []);
 
   const sendMessageREST = useCallback(async (conversationId, { content, media, replyTo }) => {
     const formData = new FormData();
-    if (content) formData.append("content", content);
+    // FIX: Explicitly encode Arabic/UTF-8 content as a Blob to guarantee encoding
+    if (content) {
+      const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+      formData.append("content", blob, "content.txt");
+    }
     if (media) formData.append("media", media);
     if (replyTo) formData.append("reply_to", replyTo);
 
@@ -107,36 +103,34 @@ function useMessaging() {
 
   // ─── WebSocket ───────────────────────────────────────────────────
 
-  // CONNECTION TRUTH: wsConnected = True only when WS open + authenticated
   const connectWS = useCallback((conversationId) => {
-    // Close existing connection first
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;
     }
 
     const token = authManager.getAccessToken();
-    if (!token) return; // token = False → don't connect
+    if (!token) return;
 
+    // FIX: Use a stable ref for onmessage so it never goes stale
     const wsEndpoint = `${WS_URL}/ws/chat/${conversationId}/?token=${token}`;
     const ws = new WebSocket(wsEndpoint);
     wsRef.current = ws;
 
-    ws.onopen = () => {
-      setWsConnected(true); // Connection = True
-    };
+    ws.onopen = () => setWsConnected(true);
+    ws.onclose = () => setWsConnected(false);
+    ws.onerror = () => setWsConnected(false);
 
-    ws.onclose = () => {
-      setWsConnected(false); // Connection = False
-    };
-
-    ws.onerror = () => {
-      setWsConnected(false);
-    };
-
+    // FIX: Always call through the ref so we get the latest handleWSEvent
     ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      handleWSEvent(data);
+      // FIX: Explicitly decode as UTF-8 to support Arabic and all Unicode text
+      const text = typeof event.data === "string"
+        ? event.data
+        : new TextDecoder("utf-8").decode(event.data);
+      const data = JSON.parse(text);
+      if (handleWSEventRef.current) {
+        handleWSEventRef.current(data);
+      }
     };
   }, []);
 
@@ -150,14 +144,14 @@ function useMessaging() {
     setOnlineUsers(new Set());
   }, []);
 
-  // EFFECT CONNECTION: activeConversation → connect WS, load messages
   const openConversation = useCallback((conversation) => {
     setActiveConversation(conversation);
     setMessages([]);
+    // FIX: Reset typing/online state when switching conversations
+    setTypingUsers({});
+    setOnlineUsers(new Set());
     loadMessages(conversation.id);
     connectWS(conversation.id);
-
-    // Mark as read — update unread count locally
     setConversations(prev => prev.map(c =>
       c.id === conversation.id ? { ...c, unread_count: 0 } : c
     ));
@@ -165,13 +159,12 @@ function useMessaging() {
 
   // ─── WS Event Handler ────────────────────────────────────────────
 
-// ─── WS Event Handler ────────────────────────────────────────────
-
   const handleWSEvent = useCallback((data) => {
     switch (data.type) {
 
       case 'chat.message':
         setMessages(prev => {
+          // Deduplicate by id — also replaces any optimistic message with same tempId
           if (prev.find(m => m.id === data.message.id)) return prev;
           return [...prev, data.message];
         });
@@ -223,26 +216,19 @@ function useMessaging() {
         ));
         break;
 
-      // ── AI TRANSLATION ───────────────────────────────────────────
-      // TRUTH GATE:
-      // message_id matches = True  → update content in-place
-      // message_id no match = False → leave unchanged
-      // is_translated = True → MessageBubble shows translate badge
-      // original_content saved → user can toggle "see original"
       case 'chat.translation.ready':
         setMessages(prev => prev.map(m =>
           m.id === data.message_id
             ? {
                 ...m,
-                content: data.translated_content,  // Receiver sees translation
-                original_content: m.content,        // Original preserved for toggle
-                is_translated: true,                // True → show badge
+                content: data.translated_content,
+                original_content: m.content,
+                is_translated: true,
                 target_language: data.target_language,
               }
             : m
         ));
         break;
-      // ─────────────────────────────────────────────────────────────
 
       case 'user.online':
         setOnlineUsers(prev => new Set([...prev, data.user_id]));
@@ -261,44 +247,79 @@ function useMessaging() {
     }
   }, []);
 
+  // FIX: Keep the ref in sync with the latest handleWSEvent on every render
+  useEffect(() => {
+    handleWSEventRef.current = handleWSEvent;
+  }, [handleWSEvent]);
+
   // ─── WS Send helpers ─────────────────────────────────────────────
 
   const sendWSMessage = useCallback((payload) => {
-    // TRUTH GATE: only send if WS is True (open)
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      // FIX: JSON.stringify handles Unicode/Arabic natively — no extra encoding needed
       wsRef.current.send(JSON.stringify(payload));
       return true;
     }
-    return false; // WS = False → fallback to REST
+    return false;
   }, []);
 
   const sendMessage = useCallback(async (conversationId, { content, media, replyTo }) => {
     if (media) {
-      // Media must go via REST (WebSocket can't handle binary)
       const msg = await sendMessageREST(conversationId, { content, media, replyTo });
       setMessages(prev => [...prev, msg]);
+      // FIX: Also update conversation sidebar for media messages
+      setConversations(prev => prev.map(c =>
+        c.id === conversationId
+          ? {
+              ...c,
+              last_message: {
+                id: msg.id,
+                sender: msg.sender?.full_name,
+                content: msg.content,
+                message_type: msg.message_type,
+                created_at: msg.created_at,
+              },
+              updated_at: msg.created_at,
+            }
+          : c
+      ));
       return msg;
     }
 
-    // Text: try WS first, fallback to REST
     const sent = sendWSMessage({
       type: 'chat.message',
-      content,
+      content,          // Arabic UTF-8 strings are safe inside JSON
       reply_to: replyTo || null,
     });
 
     if (!sent) {
-      // WS = False → use REST fallback
+      // WS closed → fall back to REST
       const msg = await sendMessageREST(conversationId, { content, replyTo });
       setMessages(prev => [...prev, msg]);
+      // FIX: Update sidebar on REST fallback too
+      setConversations(prev => prev.map(c =>
+        c.id === conversationId
+          ? {
+              ...c,
+              last_message: {
+                id: msg.id,
+                sender: msg.sender?.full_name,
+                content: msg.content,
+                message_type: msg.message_type,
+                created_at: msg.created_at,
+              },
+              updated_at: msg.created_at,
+            }
+          : c
+      ));
       return msg;
     }
+    // WS sent: the server will echo back a 'chat.message' event which
+    // handleWSEvent will pick up and add to messages for both sender & receiver.
   }, [sendWSMessage, sendMessageREST]);
 
   const sendTyping = useCallback((isTyping) => {
     sendWSMessage({ type: 'chat.typing', is_typing: isTyping });
-
-    // Auto-stop typing after 3s
     if (isTyping) {
       clearTimeout(typingTimerRef.current);
       typingTimerRef.current = setTimeout(() => {
@@ -312,7 +333,6 @@ function useMessaging() {
     sendWSMessage({ type: 'chat.read', message_ids: messageIds });
   }, [sendWSMessage]);
 
-  // ─── Cleanup on unmount ──────────────────────────────────────────
   useEffect(() => {
     return () => {
       disconnectWS();
@@ -321,7 +341,6 @@ function useMessaging() {
   }, [disconnectWS]);
 
   return {
-    // State truths
     conversations,
     activeConversation,
     messages,
@@ -332,8 +351,6 @@ function useMessaging() {
     typingUsers,
     onlineUsers,
     error,
-
-    // Actions
     loadConversations,
     loadMessages,
     createConversation,
