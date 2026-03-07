@@ -31,6 +31,7 @@ function useMessaging() {
   const typingTimerRef     = useRef(null);
   const isFetching         = useRef(false);
   const handleWSEventRef   = useRef(null); // FIX 4: stable WS handler ref
+  const activeConvRef      = useRef(null); // track active conv for WS reconnect
 
   // --- REST API ----------------------------------------------------
 
@@ -174,7 +175,13 @@ function useMessaging() {
     const ws = new WebSocket(wsEndpoint);
     wsRef.current = ws;
 
-    ws.onopen  = () => setWsConnected(true);
+    ws.onopen  = () => {
+      setWsConnected(true);
+      // Reload messages on reconnect to catch anything missed during disconnection
+      if (activeConvRef.current) {
+        loadMessages(activeConvRef.current.id);
+      }
+    };
     ws.onclose = () => setWsConnected(false);
     ws.onerror = () => setWsConnected(false);
 
@@ -307,6 +314,11 @@ function useMessaging() {
   useEffect(() => {
     handleWSEventRef.current = handleWSEvent;
   }, [handleWSEvent]);
+
+  // Keep activeConvRef in sync for WS reconnect
+  useEffect(() => {
+    activeConvRef.current = activeConversation;
+  }, [activeConversation]);
 
   // --- WS Send helpers ---------------------------------------------
 
