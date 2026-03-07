@@ -1,298 +1,180 @@
-// src/components/messaging/MessageInput.jsx
-import React, { useState, useRef } from "react";
+// components/messaging/MessageInput.jsx
+import React, { useState, useRef, useCallback } from "react";
 
-// =============================================================================
-// TRUTH LAYER 1: State
-// translateMode = True  → user wants to preview translation before sending
-// translateMode = False → send as-is (default)
-// translating   = True  → waiting for translation API (show spinner)
-// previewText   = null  → no preview yet
-// previewText   = str   → translated preview ready (user can edit)
-//
-// TRUTH LAYER 3: Form validation
-// canSend = (content.trim() || media) && !sending && !translating
-//
-// CONNECTIONS:
-// onTranslate  → owned by useMessaging hook (NOT axiosService here)
-// onSend       → owned by useMessaging hook
-// onTyping     → owned by useMessaging hook
-//
-// TRUTH GATE for send:
-// translateMode=True && previewText=True  → send previewText
-// translateMode=True && previewText=False → send original (preview failed)
-// translateMode=False                     → send original
-// =============================================================================
-
-function MessageInput({
+export default function MessageInput({
   onSend,
   onTyping,
-  wsConnected,
-  onTranslate,           // (text, targetLang) => Promise<string|null> — from useMessaging
-  receiverLanguage = "ar", // target language for translation
+  replyTo,
+  onCancelReply,
+  disabled = false,
 }) {
-  const [content, setContent]           = useState("");
-  const [media, setMedia]               = useState(null);
-  const [mediaPreview, setMediaPreview] = useState(null);
-  const [sending, setSending]           = useState(false);
+  const [content, setContent]   = useState("");
+  const [media, setMedia]       = useState(null);
+  const [preview, setPreview]   = useState(null);
+  const [sending, setSending]   = useState(false);
+  const fileRef                 = useRef(null);
+  const textareaRef             = useRef(null);
 
-  // ── Translation state ────────────────────────────────────────────
-  const [translateMode, setTranslateMode]   = useState(false); // False = off
-  const [translating, setTranslating]       = useState(false); // True = API in progress
-  const [previewText, setPreviewText]       = useState(null);  // null = no preview
-  const [translateError, setTranslateError] = useState(null);
-  // ─────────────────────────────────────────────────────────────────
-
-  const fileInputRef = useRef(null);
-
-  // TRUTH GATE: canSend = True only if content or media AND not busy
-  const canSend = (content.trim().length > 0 || media !== null) && !sending && !translating;
-
-  // ── Translation toggle ───────────────────────────────────────────
-  // TRUTH GATE:
-  // turning ON + content exists → fetch preview immediately
-  // turning ON + no content     → show empty preview area
-  // turning OFF                 → clear preview state
-  const handleToggleTranslate = async () => {
-    const turningOn = !translateMode;
-    setTranslateMode(turningOn);
-    setTranslateError(null);
-
-    if (!turningOn) {
-      setPreviewText(null); // False → clear
-      return;
-    }
-
-    if (content.trim()) {
-      await fetchPreview(content.trim());
-    }
-  };
-
-  // ── Fetch preview ────────────────────────────────────────────────
-  // TRUTH GATE:
-  // onTranslate returns string = True  → previewText = translated
-  // onTranslate returns null   = False → translateError shown
-  const fetchPreview = async (text) => {
-    if (!text.trim() || !onTranslate) return;
-    setTranslating(true);
-    setTranslateError(null);
-    try {
-      const translated = await onTranslate(text, receiverLanguage);
-      if (translated) {
-        setPreviewText(translated);   // True → preview ready
-      } else {
-        setTranslateError("Translation failed. Will send as original.");
-        setPreviewText(null);         // False → no preview
-      }
-    } finally {
-      setTranslating(false);
-    }
-  };
-
-  // ── Content change ───────────────────────────────────────────────
-  const handleContentChange = (e) => {
+  const handleChange = (e) => {
     setContent(e.target.value);
-    onTyping(e.target.value.length > 0);
-    // TRUTH GATE: translateMode = True → stale preview → clear
-    if (translateMode) {
-      setPreviewText(null);
-      setTranslateError(null);
-    }
+    onTyping?.(true);
+    // Auto-resize textarea
+    e.target.style.height = "auto";
+    e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
   };
 
-  // When user stops typing and translateMode is on → fetch preview
-  const handleContentBlur = async () => {
-    if (translateMode && content.trim() && !previewText && !translating) {
-      await fetchPreview(content.trim());
-    }
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      if (canSend) handleSend();
-    }
-  };
-
-  const handleFileSelect = (e) => {
+  const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     setMedia(file);
-    const reader = new FileReader();
-    reader.onloadend = () => setMediaPreview({
-      url: reader.result,
-      type: file.type.startsWith("image/") ? "image" : "video",
-    });
-    reader.readAsDataURL(file);
+    if (file.type.startsWith("image/")) {
+      setPreview(URL.createObjectURL(file));
+    } else {
+      setPreview(null);
+    }
   };
 
   const removeMedia = () => {
     setMedia(null);
-    setMediaPreview(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    setPreview(null);
+    if (fileRef.current) fileRef.current.value = "";
   };
 
-  const handleSend = async () => {
-    if (!canSend) return;
-
-    // TRUTH GATE:
-    // translateMode=True && previewText=True  → send translation
-    // translateMode=True && previewText=False → send original (fallback)
-    // translateMode=False                     → send original
-    const contentToSend = (translateMode && previewText)
-      ? previewText
-      : content.trim();
-
+  const handleSend = useCallback(async () => {
+    if ((!content.trim() && !media) || sending || disabled) return;
+    setSending(true);
     try {
-      setSending(true);
-      await onSend({ content: contentToSend, media });
-      // Reset after send
+      await onSend({ content: content.trim(), media, replyTo: replyTo?.id });
       setContent("");
-      setMedia(null);
-      setMediaPreview(null);
-      setPreviewText(null);
-      setTranslateError(null);
-      onTyping(false);
-    } catch (err) {
-      console.error("Failed to send:", err);
+      removeMedia();
+      onCancelReply?.();
+      onTyping?.(false);
+      if (textareaRef.current) {
+        textareaRef.current.style.height = "auto";
+      }
     } finally {
       setSending(false);
+    }
+  }, [content, media, replyTo, sending, disabled, onSend, onCancelReply, onTyping]);
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
     }
   };
 
   return (
-    <div className="message-input-area">
-
-      {/* ── Translate toggle bar ──────────────────────────────────── */}
-      {/* Only show if onTranslate is available (hook connected)      */}
-      {onTranslate && (
-        <div className="translate-toggle-bar">
-          <button
-            className={`translate-toggle-btn ${translateMode ? "active" : ""}`}
-            onClick={handleToggleTranslate}
-            disabled={sending}
-            title={translateMode ? "Turn off translation" : "Translate before sending"}
-          >
-            <i className="bi bi-translate me-1" />
-            {translateMode ? "Translation ON" : "Translate before sending"}
-            {translateMode && (
-              <span className="translate-target-badge">
-                → {receiverLanguage.toUpperCase()}
-              </span>
-            )}
-          </button>
-        </div>
-      )}
-
-      {/* ── Translation preview ───────────────────────────────────── */}
-      {/* TRUTH GATE: translateMode=True → show preview area          */}
-      {translateMode && (
-        <div className="translate-preview-area">
-          <div className="translate-preview-label">
-            <i className="bi bi-eye me-1" />
-            Preview (what receiver sees) — you can edit:
+    <div style={{
+      borderTop: "1px solid #1e1e2e",
+      background: "#0f0f13",
+      fontFamily: "'DM Sans', sans-serif",
+    }}>
+      {/* Reply preview */}
+      {replyTo && (
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "8px 16px", background: "#141420",
+          borderLeft: "3px solid #3b82f6",
+        }}>
+          <div>
+            <span style={{ fontSize: 11, color: "#3b82f6", fontWeight: 600 }}>
+              Replying to {replyTo.sender?.full_name}
+            </span>
+            <div style={{
+              fontSize: 12, color: "#666", marginTop: 1,
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+              maxWidth: 240,
+            }}>
+              {replyTo.content || "Media"}
+            </div>
           </div>
-
-          {translating ? (
-            <div className="translate-preview-loading">
-              <span className="spinner-border spinner-border-sm me-2" />
-              Translating...
-            </div>
-          ) : translateError ? (
-            <div className="translate-preview-error">
-              <i className="bi bi-exclamation-triangle me-1" />
-              {translateError}
-            </div>
-          ) : previewText !== null ? (
-            <textarea
-              className="translate-preview-input"
-              value={previewText}
-              onChange={(e) => setPreviewText(e.target.value)}
-              rows={2}
-              placeholder="Translation preview..."
-              dir="auto"
-            />
-          ) : (
-            <div className="translate-preview-empty">
-              Type your message above to see translation preview
-            </div>
-          )}
+          <button onClick={onCancelReply} style={{
+            background: "none", border: "none", color: "#555",
+            cursor: "pointer", fontSize: 16, padding: 4,
+          }}>×</button>
         </div>
       )}
 
       {/* Media preview */}
-      {mediaPreview && (
-        <div className="input-media-preview">
-          {mediaPreview.type === "image" ? (
-            <img src={mediaPreview.url} alt="Preview" />
-          ) : (
-            <video src={mediaPreview.url} />
-          )}
-          <button className="remove-media-btn" onClick={removeMedia}>
-            <i className="bi bi-x-circle-fill" />
-          </button>
+      {media && (
+        <div style={{
+          padding: "8px 16px", display: "flex", alignItems: "center", gap: 10,
+          background: "#141420",
+        }}>
+          {preview
+            ? <img src={preview} alt="" style={{ height: 48, borderRadius: 6, objectFit: "cover" }} />
+            : <div style={{ fontSize: 24 }}>📎</div>
+          }
+          <span style={{ fontSize: 12, color: "#888", flex: 1 }}>{media.name}</span>
+          <button onClick={removeMedia} style={{
+            background: "none", border: "none", color: "#ef4444",
+            cursor: "pointer", fontSize: 16,
+          }}>×</button>
         </div>
       )}
 
-      <div className="message-input-row">
+      {/* Input row */}
+      <div style={{
+        display: "flex", alignItems: "flex-end", gap: 8,
+        padding: "10px 12px",
+      }}>
         {/* Attach */}
         <button
-          className="attach-btn"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={sending}
-          title="Attach file"
-        >
-          <i className="bi bi-paperclip" />
-        </button>
-
-        {/* Text input */}
-        <textarea
-          className="message-textarea"
-          placeholder={wsConnected ? "Type a message..." : "Reconnecting..."}
-          value={content}
-          onChange={handleContentChange}
-          onBlur={handleContentBlur}
-          onKeyDown={handleKeyDown}
-          disabled={sending}
-          rows={1}
-          dir="auto"
+          onClick={() => fileRef.current?.click()}
+          disabled={disabled}
+          style={{
+            background: "none", border: "1px solid #2a2a3e",
+            borderRadius: 8, width: 36, height: 36,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer", color: "#555", fontSize: 16, flexShrink: 0,
+          }}
+        >📎</button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*,video/*,application/pdf"
+          style={{ display: "none" }}
+          onChange={handleFileChange}
         />
 
-        {/* Refresh preview button */}
-        {translateMode && content.trim() && !translating && (
-          <button
-            className="preview-btn"
-            onClick={() => fetchPreview(content.trim())}
-            title="Refresh translation"
-            disabled={sending}
-          >
-            <i className="bi bi-arrow-clockwise" />
-          </button>
-        )}
+        {/* Textarea */}
+        <textarea
+          ref={textareaRef}
+          value={content}
+          onChange={handleChange}
+          onKeyDown={handleKeyDown}
+          disabled={disabled || sending}
+          placeholder="Type a message…"
+          rows={1}
+          style={{
+            flex: 1, background: "#1a1a2e", border: "1px solid #2a2a3e",
+            borderRadius: 12, padding: "8px 14px",
+            color: "#e8e8f0", fontSize: 14, resize: "none",
+            outline: "none", lineHeight: 1.5, maxHeight: 120,
+            fontFamily: "'DM Sans', sans-serif",
+            overflowY: "auto",
+          }}
+        />
 
-        {/* Send button */}
+        {/* Send */}
         <button
-          className={`send-btn ${canSend ? "active" : ""}`}
           onClick={handleSend}
-          disabled={!canSend}
-          title={translateMode && previewText ? "Send translated" : "Send"}
+          disabled={(!content.trim() && !media) || sending || disabled}
+          style={{
+            background: (!content.trim() && !media) || sending || disabled
+              ? "#1e1e2e" : "#3b82f6",
+            border: "none", borderRadius: 10,
+            width: 36, height: 36, flexShrink: 0,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: ((!content.trim() && !media) || sending || disabled) ? "not-allowed" : "pointer",
+            transition: "background 0.2s",
+            fontSize: 16,
+          }}
         >
-          {sending ? (
-            <span className="spinner-border spinner-border-sm" />
-          ) : (
-            <i className={`bi ${translateMode && previewText ? "bi-translate" : "bi-send-fill"}`} />
-          )}
+          {sending ? "…" : "➤"}
         </button>
       </div>
-
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*,video/*,application/*"
-        onChange={handleFileSelect}
-        style={{ display: "none" }}
-      />
     </div>
   );
 }
-
-export default MessageInput;

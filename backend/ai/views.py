@@ -1,53 +1,71 @@
 # ai/views.py
+import logging
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
+from django.shortcuts import get_object_or_404
+
+from .models import TranslationPreference
+from .serializers import TranslationPreferenceSerializer
+
+logger = logging.getLogger(__name__)
 
 
-class TranslateView(APIView):
+class TranslationPreferenceView(APIView):
     """
-    POST /api/ai/translate/
-    Body: { text, source_lang, target_lang }
+    GET  /ai/translation-preference/<conversation_id>/
+         → returns current toggle state for this user + conversation
 
-    TRUTH GATES:
-    text empty         = False → 400
-    same language      = False → return original (no API call)
-    LibreTranslate up  = True  → return translated
-    LibreTranslate down= False → return original with warning
+    POST /ai/translation-preference/<conversation_id>/
+         → set is_enabled = True / False
+         Body: { "is_enabled": true }
     """
     permission_classes = [IsAuthenticated]
 
-    def post(self, request):
-        text        = request.data.get('text', '').strip()
-        source_lang = request.data.get('source_lang', 'en')
-        target_lang = request.data.get('target_lang', 'ar')
+    def get(self, request, conversation_id):
+        from chat.models import Conversation
+        conversation = get_object_or_404(Conversation, id=conversation_id)
 
-        # GATE 1: text must exist
-        if not text:
+        # Verify user is a participant
+        if not conversation.participants.filter(id=request.user.id).exists():
             return Response(
-                {'error': 'text is required'},
-                status=status.HTTP_400_BAD_REQUEST
+                {"detail": "You are not a participant of this conversation."},
+                status=status.HTTP_403_FORBIDDEN,
             )
 
-        # GATE 2: same language → return original
-        if source_lang == target_lang:
-            return Response({'translated_text': text, 'same_language': True})
+        pref, _ = TranslationPreference.objects.get_or_create(
+            user=request.user,
+            conversation=conversation,
+            defaults={'is_enabled': True},
+        )
+        serializer = TranslationPreferenceSerializer(pref)
+        return Response(serializer.data)
 
-        # GATE 3: translate
-        try:
-            from ai.services.translation import translate
-            translated = translate(text, source_lang, target_lang)
-            return Response({
-                'translated_text': translated,
-                'source_lang': source_lang,
-                'target_lang': target_lang,
-                'same_language': False,
-            })
-        except Exception as e:
-            # INVARIANT: never crash — return original as fallback
-            return Response({
-                'translated_text': text,
-                'error': 'Translation service unavailable',
-                'same_language': False,
-            }, status=status.HTTP_200_OK)  # 200 so frontend still gets text
+    def post(self, request, conversation_id):
+        from chat.models import Conversation
+        conversation = get_object_or_404(Conversation, id=conversation_id)
+
+        # Verify user is a participant
+        if not conversation.participants.filter(id=request.user.id).exists():
+            return Response(
+                {"detail": "You are not a participant of this conversation."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        pref, _ = TranslationPreference.objects.get_or_create(
+            user=request.user,
+            conversation=conversation,
+            defaults={'is_enabled': True},
+        )
+
+        serializer = TranslationPreferenceSerializer(pref, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            logger.info(
+                f"TranslationPreference updated: user={request.user.id} "
+                f"conv={conversation_id} enabled={pref.is_enabled}"
+            )
+            return Response(serializer.data)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

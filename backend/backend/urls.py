@@ -41,8 +41,8 @@ urlpatterns = [
     path('api/likes/', include('likes.urls')),
     path("api/comment/", include("comment.urls")),
     path('api/bookmarks/', include('bookmarks.urls')),
-    path("api/messaging/", include("chat.urls")),
-    path('api/ai/', include('ai.urls')),
+    path('api/ai/', include('ai.urls', namespace='ai')),
+    path('api/chat/', include('chat.urls', namespace='chat')),
 ]
 
 # Serve media files in development only

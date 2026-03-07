@@ -1,188 +1,239 @@
-// src/components/messaging/ChatWindow.jsx
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Spinner } from "react-bootstrap";
+// components/messaging/ChatWindow.jsx
+import React, { useEffect, useRef, useState, useCallback } from "react";
+import { authManager } from "../helpers/authManager";
 import MessageBubble from "./MessageBubble";
 import MessageInput from "./MessageInput";
+import TypingIndicator from "./TypingIndicator";
+import TranslationToggle from "./TranslationToggle";
 
-function ChatWindow({
-  conversation, messages, currentUser, wsConnected,
-  loading, hasMore, typingUsers, onlineUsers,
-  onSend, onTyping, onReadReceipts, onDelete, onLoadMore,
-  onTranslate,
+const Avatar = ({ name = "", size = 32 }) => {
+  const initials = name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+  const colors   = ["#3b82f6","#8b5cf6","#ec4899","#f59e0b","#10b981","#ef4444"];
+  const color    = colors[name.charCodeAt(0) % colors.length];
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: "50%",
+      background: color, display: "flex", alignItems: "center",
+      justifyContent: "center", color: "#fff",
+      fontSize: size * 0.36, fontWeight: 700, flexShrink: 0,
+    }}>{initials}</div>
+  );
+};
+
+export default function ChatWindow({
+  conversation,
+  messages = [],
+  typingUsers = {},
+  onlineUsers = new Set(),
+  wsConnected,
+  loadingMessages,
+  hasMoreMessages,
+  onSendMessage,
+  onTyping,
+  onDeleteMessage,
+  onLoadMore,
+  onToggleTranslation,
+  onReadReceipts,
 }) {
-  const bottomRef = useRef(null);
-  const topRef    = useRef(null);
-  const [replyTo, setReplyTo] = useState(null);
+  const currentUser   = authManager.getUser();
+  const bottomRef     = useRef(null);
+  const messagesRef   = useRef(null);
+  const [replyTo, setReplyTo]             = useState(null);
+  const [showTranslation, setShowTranslation] = useState(true);
+  const prevMessagesLen                   = useRef(0);
 
+  // Get other participant name
+  const getTitle = () => {
+    if (!conversation) return "";
+    if (conversation.is_group) return conversation.name || "Group";
+    const other = conversation.participants?.find(p => p.id !== currentUser?.id);
+    return other?.full_name || "Unknown";
+  };
+
+  const getSubtitle = () => {
+    if (!conversation) return "";
+    const other = conversation.participants?.find(p => p.id !== currentUser?.id);
+    if (other && onlineUsers.has(other.id)) return "Online";
+    if (wsConnected) return "Connected";
+    return "Offline";
+  };
+
+  const isOnline = () => {
+    if (!conversation || conversation.is_group) return wsConnected;
+    const other = conversation.participants?.find(p => p.id !== currentUser?.id);
+    return other ? onlineUsers.has(other.id) : false;
+  };
+
+  // Auto-scroll to bottom on new messages
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messages.length > prevMessagesLen.current) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+    prevMessagesLen.current = messages.length;
   }, [messages.length]);
 
+  // Mark unread messages as read when window is visible
   useEffect(() => {
-    if (messages.length === 0) return;
-    const unread = messages
-      .filter(m => !m.is_deleted && m.sender?.id !== currentUser?.id)
+    if (!messages.length || !onReadReceipts) return;
+    const unreadIds = messages
+      .filter(m => m.sender?.id !== currentUser?.id)
       .filter(m => !m.read_by?.some(r => r.user?.id === currentUser?.id))
       .map(m => m.id);
-    if (unread.length > 0) onReadReceipts(unread);
-  }, [messages]);
+    if (unreadIds.length > 0) onReadReceipts(unreadIds);
+  }, [messages, currentUser?.id]);
 
-  useEffect(() => {
-    if (!hasMore) return;
-    const observer = new IntersectionObserver(
-      (entries) => { if (entries[0].isIntersecting) onLoadMore(); },
-      { threshold: 0.1 }
-    );
-    if (topRef.current) observer.observe(topRef.current);
-    return () => observer.disconnect();
-  }, [hasMore, onLoadMore]);
-
-  // FIX: Use == (loose equality) so "123" == 123 → true
-  // Prevents type mismatch between currentUser.id (string from JWT)
-  // and participant.id (number from API)
-  const getOtherParticipant = () => {
-    if (conversation.is_group) return null;
-    // eslint-disable-next-line eqeqeq
-    return conversation.participants?.find(p => p.id != currentUser?.id);
-  };
-
-  const getReceiverLanguage = () => {
-    if (conversation.is_group) return null;
-    const other = getOtherParticipant();
-    const lang = other?.preferred_language || 'en';
-    console.debug('[ChatWindow] receiver:', other?.full_name, '| lang:', lang); // debug
-    return lang;
-  };
-
-  const getHeaderTitle = () => {
-    if (conversation.is_group) return conversation.name;
-    return getOtherParticipant()?.full_name || "Unknown";
-  };
-
-  const getHeaderSubtitle = () => {
-    const other = getOtherParticipant();
-    if (other) return onlineUsers.has(other.id) ? "Online" : "Offline";
-    return `${conversation.participants?.length || 0} members`;
-  };
-
-  const getHeaderAvatar = () => {
-    if (conversation.is_group) {
-      return `https://ui-avatars.com/api/?name=${encodeURIComponent(conversation.name || "G")}&background=7c3aed&color=fff&bold=true`;
+  // Infinite scroll — load more when scrolled to top
+  const handleScroll = useCallback(() => {
+    if (!messagesRef.current || !hasMoreMessages) return;
+    if (messagesRef.current.scrollTop < 60) {
+      onLoadMore?.();
     }
-    const other = getOtherParticipant();
-    if (other?.avatar_url?.startsWith("http")) return other.avatar_url;
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(other?.full_name || "U")}&background=7c3aed&color=fff&bold=true`;
-  };
-
-  const typingList  = Object.values(typingUsers);
-  const isTyping    = typingList.length > 0;
-  const receiverLang = getReceiverLanguage();
+  }, [hasMoreMessages, onLoadMore]);
 
   const handleSend = useCallback(async (payload) => {
-    await onSend({ ...payload, replyTo: replyTo?.id });
-    setReplyTo(null);
-  }, [onSend, replyTo]);
+    await onSendMessage(conversation.id, payload);
+  }, [conversation?.id, onSendMessage]);
+
+  const handleDelete = useCallback(async (messageId) => {
+    await onDeleteMessage(conversation.id, messageId);
+  }, [conversation?.id, onDeleteMessage]);
+
+  // ─── Empty state ─────────────────────────────────────────────────
+
+  if (!conversation) {
+    return (
+      <div style={{
+        flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
+        background: "#0a0a10", fontFamily: "'DM Sans', sans-serif",
+      }}>
+        <div style={{ textAlign: "center", color: "#333" }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>💬</div>
+          <div style={{ fontSize: 16, fontWeight: 600, color: "#444" }}>Select a conversation</div>
+          <div style={{ fontSize: 13, marginTop: 4 }}>Choose from the list to start messaging</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="chat-window">
+    <div style={{
+      flex: 1, display: "flex", flexDirection: "column",
+      background: "#0a0a10", height: "100%",
+      fontFamily: "'DM Sans', sans-serif",
+    }}>
 
-      {/* Header */}
-      <div className="chat-header">
-        <div className="d-flex align-items-center gap-2">
-          <div className="chat-header-avatar-wrap">
-            <img src={getHeaderAvatar()} alt="" className="chat-header-avatar" />
-            {!conversation.is_group && onlineUsers.has(getOtherParticipant()?.id) && (
-              <span className="online-dot" />
+      {/* ── Header ── */}
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "12px 16px", borderBottom: "1px solid #1e1e2e",
+        background: "#0f0f13",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ position: "relative" }}>
+            <Avatar name={getTitle()} size={36} />
+            {isOnline() && (
+              <div style={{
+                position: "absolute", bottom: 0, right: 0,
+                width: 10, height: 10, borderRadius: "50%",
+                background: "#10b981", border: "2px solid #0f0f13",
+              }} />
             )}
           </div>
           <div>
-            <div className="chat-header-name">{getHeaderTitle()}</div>
-            <div className={`chat-header-status ${onlineUsers.has(getOtherParticipant()?.id) ? "online" : "offline"}`}>
-              {getHeaderSubtitle()}
+            <div style={{ fontWeight: 700, fontSize: 15, color: "#f1f1f1" }}>
+              {getTitle()}
+            </div>
+            <div style={{
+              fontSize: 12,
+              color: isOnline() ? "#10b981" : "#555",
+            }}>
+              {getSubtitle()}
             </div>
           </div>
         </div>
 
-        {!wsConnected && (
-          <span className="ws-offline-pill">
-            <i className="bi bi-wifi-off me-1" />
-            Reconnecting...
-          </span>
-        )}
+        {/* Translation toggle */}
+        <TranslationToggle
+          conversation={conversation}
+          onToggle={onToggleTranslation}
+        />
       </div>
 
-      {/* Messages */}
-      <div className="chat-messages">
-        <div ref={topRef} />
-
-        {loading && (
-          <div className="text-center py-3">
-            <Spinner animation="border" size="sm" variant="primary" />
+      {/* ── Messages ── */}
+      <div
+        ref={messagesRef}
+        onScroll={handleScroll}
+        style={{
+          flex: 1, overflowY: "auto", padding: "12px 0",
+          display: "flex", flexDirection: "column", gap: 2,
+        }}
+      >
+        {/* Load more */}
+        {hasMoreMessages && (
+          <div style={{ textAlign: "center", padding: "8px 0" }}>
+            <button onClick={onLoadMore} style={{
+              background: "none", border: "1px solid #2a2a3e",
+              borderRadius: 8, padding: "6px 16px",
+              color: "#555", fontSize: 12, cursor: "pointer",
+            }}>
+              Load older messages
+            </button>
           </div>
         )}
 
-        {!loading && messages.length === 0 && (
-          <div className="chat-empty">
-            <p className="text-muted">No messages yet. Say hello! 👋</p>
+        {loadingMessages && messages.length === 0 && (
+          <div style={{ textAlign: "center", padding: 24, color: "#444", fontSize: 13 }}>
+            Loading messages…
           </div>
         )}
 
-        {messages.map((msg, index) => {
-          const isOwn      = msg.sender?.id === currentUser?.id;
-          const prevMsg    = messages[index - 1];
-          const showAvatar = !prevMsg || prevMsg.sender?.id !== msg.sender?.id;
+        {!loadingMessages && messages.length === 0 && (
+          <div style={{ textAlign: "center", padding: 24, color: "#333", fontSize: 13 }}>
+            No messages yet. Say hello! 👋
+          </div>
+        )}
+
+        {/* Group messages by date */}
+        {messages.map((message, idx) => {
+          const prevMsg  = messages[idx - 1];
+          const msgDate  = new Date(message.created_at).toDateString();
+          const prevDate = prevMsg ? new Date(prevMsg.created_at).toDateString() : null;
+          const showDate = msgDate !== prevDate;
+
           return (
-            <MessageBubble
-              key={msg.id}
-              message={msg}
-              isOwn={isOwn}
-              showAvatar={showAvatar}
-              currentUser={currentUser}
-              onReply={() => setReplyTo(msg)}
-              onDelete={() => onDelete(msg.id)}
-            />
+            <React.Fragment key={message.id}>
+              {showDate && (
+                <div style={{
+                  textAlign: "center", padding: "12px 0 4px",
+                  fontSize: 11, color: "#444",
+                }}>
+                  {msgDate === new Date().toDateString() ? "Today" : msgDate}
+                </div>
+              )}
+              <MessageBubble
+                message={message}
+                onDelete={handleDelete}
+                onReply={setReplyTo}
+                showTranslation={showTranslation && (conversation.translation_enabled ?? true)}
+              />
+            </React.Fragment>
           );
         })}
-
-        {isTyping && (
-          <div className="typing-indicator">
-            <span className="typing-dots"><span /><span /><span /></span>
-            <span className="typing-text">
-              {typingList.length === 1
-                ? `${typingList[0]} is typing`
-                : `${typingList.length} people are typing`}
-            </span>
-          </div>
-        )}
 
         <div ref={bottomRef} />
       </div>
 
-      {/* Reply preview */}
-      {replyTo && (
-        <div className="reply-preview">
-          <div className="reply-preview-content">
-            <span className="reply-preview-sender">{replyTo.sender?.full_name}</span>
-            <span className="reply-preview-text">
-              {replyTo.is_deleted ? "Deleted message" : replyTo.content}
-            </span>
-          </div>
-          <button className="reply-preview-close" onClick={() => setReplyTo(null)}>
-            <i className="bi bi-x" />
-          </button>
-        </div>
-      )}
+      {/* ── Typing indicator ── */}
+      <TypingIndicator typingUsers={typingUsers} />
 
-      {/* Input */}
+      {/* ── Input ── */}
       <MessageInput
         onSend={handleSend}
         onTyping={onTyping}
-        wsConnected={wsConnected}
-        onTranslate={!conversation.is_group ? onTranslate : null}
-        receiverLanguage={receiverLang || 'en'}
+        replyTo={replyTo}
+        onCancelReply={() => setReplyTo(null)}
+        disabled={!wsConnected && messages.length === 0}
       />
     </div>
   );
 }
-
-export default ChatWindow;

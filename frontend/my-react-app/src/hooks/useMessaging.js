@@ -6,24 +6,31 @@ import { authManager } from "../components/helpers/authManager";
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL || "";
 const WS_URL = BACKEND_URL.replace("https://", "wss://").replace("http://", "ws://");
 
+// =============================================================================
+// TRUTH LAYER: All messaging state in one hook
+// conversations:       loaded = array, empty = [], not fetched = null
+// activeConversation:  selected = object, none = null
+// messages:            loaded for activeConversation
+// wsConnected:         True if WebSocket open, False if closed/error
+// =============================================================================
+
 function useMessaging() {
-  const [conversations, setConversations] = useState([]);
-  const [activeConversation, setActiveConversation] = useState(null);
-  const [messages, setMessages] = useState([]);
-  const [wsConnected, setWsConnected] = useState(false);
+  const [conversations, setConversations]               = useState([]);
+  const [activeConversation, setActiveConversation]     = useState(null);
+  const [messages, setMessages]                         = useState([]);
+  const [wsConnected, setWsConnected]                   = useState(false);
   const [loadingConversations, setLoadingConversations] = useState(false);
-  const [loadingMessages, setLoadingMessages] = useState(false);
-  const [hasMoreMessages, setHasMoreMessages] = useState(false);
-  const [typingUsers, setTypingUsers] = useState({});
-  const [onlineUsers, setOnlineUsers] = useState(new Set());
-  const [error, setError] = useState(null);
+  const [loadingMessages, setLoadingMessages]           = useState(false);
+  const [hasMoreMessages, setHasMoreMessages]           = useState(false);
+  const [nextCursor, setNextCursor]                     = useState(null); // FIX 2: cursor pagination
+  const [typingUsers, setTypingUsers]                   = useState({});   // { userId: fullName }
+  const [onlineUsers, setOnlineUsers]                   = useState(new Set());
+  const [error, setError]                               = useState(null);
 
-  const wsRef = useRef(null);
-  const typingTimerRef = useRef(null);
-  const isFetching = useRef(false);
-
-  // Keep a stable ref to handleWSEvent to avoid stale closures in ws.onmessage
-  const handleWSEventRef = useRef(null);
+  const wsRef              = useRef(null);
+  const typingTimerRef     = useRef(null);
+  const isFetching         = useRef(false);
+  const handleWSEventRef   = useRef(null); // FIX 4: stable WS handler ref
 
   // ─── REST API ────────────────────────────────────────────────────
 
@@ -33,7 +40,7 @@ function useMessaging() {
     setLoadingConversations(true);
     setError(null);
     try {
-      const res = await axiosService.get("/api/messaging/conversations/");
+      const res = await axiosService.get("/api/chat/conversations/");
       setConversations(res.data);
     } catch (err) {
       setError("Failed to load conversations.");
@@ -43,21 +50,31 @@ function useMessaging() {
     }
   }, []);
 
-  const loadMessages = useCallback(async (conversationId, beforeId = null) => {
+  // FIX 2: cursor-based pagination — use ?cursor= not ?before=
+  const loadMessages = useCallback(async (conversationId, cursor = null) => {
     setLoadingMessages(true);
     try {
-      const url = beforeId
-        ? `/api/messaging/conversations/${conversationId}/messages/?before=${beforeId}`
-        : `/api/messaging/conversations/${conversationId}/messages/`;
+      const url = cursor
+        ? `/api/chat/conversations/${conversationId}/messages/?cursor=${cursor}`
+        : `/api/chat/conversations/${conversationId}/messages/`;
       const res = await axiosService.get(url);
-      const { results, has_more } = res.data;
 
-      if (beforeId) {
-        setMessages(prev => [...results, ...prev]);
+      // DRF CursorPagination returns { next, previous, results }
+      const results   = res.data.results  ?? res.data;
+      const nextUrl   = res.data.next     ?? null;
+
+      // Extract cursor value from next URL if present
+      const nextCursorVal = nextUrl
+        ? new URL(nextUrl).searchParams.get("cursor")
+        : null;
+
+      if (cursor) {
+        setMessages(prev => [...results, ...prev]); // prepend older messages
       } else {
-        setMessages(results);
+        setMessages(results); // fresh load
       }
-      setHasMoreMessages(has_more);
+      setNextCursor(nextCursorVal);
+      setHasMoreMessages(!!nextCursorVal);
     } catch (err) {
       setError("Failed to load messages.");
     } finally {
@@ -65,8 +82,14 @@ function useMessaging() {
     }
   }, []);
 
+  const loadMoreMessages = useCallback((conversationId) => {
+    if (hasMoreMessages && nextCursor) {
+      loadMessages(conversationId, nextCursor);
+    }
+  }, [hasMoreMessages, nextCursor, loadMessages]);
+
   const createConversation = useCallback(async ({ participantIds, isGroup = false, name = "" }) => {
-    const res = await axiosService.post("/api/messaging/conversations/", {
+    const res = await axiosService.post("/api/chat/conversations/", {
       participant_ids: participantIds,
       is_group: isGroup,
       name,
@@ -78,27 +101,40 @@ function useMessaging() {
 
   const sendMessageREST = useCallback(async (conversationId, { content, media, replyTo }) => {
     const formData = new FormData();
-    // FIX: Explicitly encode Arabic/UTF-8 content as a Blob to guarantee encoding
-    if (content) {
-      const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-      formData.append("content", blob, "content.txt");
-    }
-    if (media) formData.append("media", media);
+    if (content) formData.append("content", content);
+    if (media)   formData.append("media", media);
     if (replyTo) formData.append("reply_to", replyTo);
 
     const res = await axiosService.post(
-      `/api/messaging/conversations/${conversationId}/messages/`,
+      `/api/chat/conversations/${conversationId}/messages/`,
       formData,
       { headers: { "Content-Type": "multipart/form-data" } }
     );
     return res.data;
   }, []);
 
-  const deleteMessage = useCallback(async (messageId) => {
-    await axiosService.delete(`/api/messaging/messages/${messageId}/`);
+  // FIX 3: correct delete URL includes conversationId
+  const deleteMessage = useCallback(async (conversationId, messageId) => {
+    await axiosService.delete(
+      `/api/chat/conversations/${conversationId}/messages/${messageId}/`
+    );
     setMessages(prev => prev.map(m =>
       m.id === messageId ? { ...m, is_deleted: true, content: null } : m
     ));
+  }, []);
+
+  const toggleTranslation = useCallback(async (conversationId, isEnabled) => {
+    const res = await axiosService.post(
+      `/api/ai/translation-preference/${conversationId}/`,
+      { is_enabled: isEnabled }
+    );
+    // Update conversation in list with new toggle state
+    setConversations(prev => prev.map(c =>
+      c.id === conversationId
+        ? { ...c, translation_enabled: res.data.is_enabled }
+        : c
+    ));
+    return res.data;
   }, []);
 
   // ─── WebSocket ───────────────────────────────────────────────────
@@ -112,25 +148,18 @@ function useMessaging() {
     const token = authManager.getAccessToken();
     if (!token) return;
 
-    // FIX: Use a stable ref for onmessage so it never goes stale
     const wsEndpoint = `${WS_URL}/ws/chat/${conversationId}/?token=${token}`;
     const ws = new WebSocket(wsEndpoint);
     wsRef.current = ws;
 
-    ws.onopen = () => setWsConnected(true);
+    ws.onopen  = () => setWsConnected(true);
     ws.onclose = () => setWsConnected(false);
     ws.onerror = () => setWsConnected(false);
 
-    // FIX: Always call through the ref so we get the latest handleWSEvent
+    // FIX 4: always call latest handleWSEvent via ref — avoids stale closure
     ws.onmessage = (event) => {
-      // FIX: Explicitly decode as UTF-8 to support Arabic and all Unicode text
-      const text = typeof event.data === "string"
-        ? event.data
-        : new TextDecoder("utf-8").decode(event.data);
-      const data = JSON.parse(text);
-      if (handleWSEventRef.current) {
-        handleWSEventRef.current(data);
-      }
+      const data = JSON.parse(event.data);
+      handleWSEventRef.current?.(data);
     };
   }, []);
 
@@ -147,11 +176,10 @@ function useMessaging() {
   const openConversation = useCallback((conversation) => {
     setActiveConversation(conversation);
     setMessages([]);
-    // FIX: Reset typing/online state when switching conversations
-    setTypingUsers({});
-    setOnlineUsers(new Set());
+    setNextCursor(null);
     loadMessages(conversation.id);
     connectWS(conversation.id);
+
     setConversations(prev => prev.map(c =>
       c.id === conversation.id ? { ...c, unread_count: 0 } : c
     ));
@@ -164,7 +192,6 @@ function useMessaging() {
 
       case 'chat.message':
         setMessages(prev => {
-          // Deduplicate by id — also replaces any optimistic message with same tempId
           if (prev.find(m => m.id === data.message.id)) return prev;
           return [...prev, data.message];
         });
@@ -173,11 +200,11 @@ function useMessaging() {
             ? {
                 ...c,
                 last_message: {
-                  id: data.message.id,
-                  sender: data.message.sender.full_name,
-                  content: data.message.content,
+                  id:           data.message.id,
+                  sender:       data.message.sender.full_name,
+                  content:      data.message.content,
                   message_type: data.message.message_type,
-                  created_at: data.message.created_at,
+                  created_at:   data.message.created_at,
                 },
                 updated_at: data.message.created_at,
               }
@@ -194,11 +221,10 @@ function useMessaging() {
         setTypingUsers(prev => {
           if (data.is_typing) {
             return { ...prev, [data.user_id]: data.full_name };
-          } else {
-            const next = { ...prev };
-            delete next[data.user_id];
-            return next;
           }
+          const next = { ...prev };
+          delete next[data.user_id];
+          return next;
         });
         break;
 
@@ -212,20 +238,8 @@ function useMessaging() {
 
       case 'chat.message.delete':
         setMessages(prev => prev.map(m =>
-          m.id === data.message_id ? { ...m, is_deleted: true, content: null } : m
-        ));
-        break;
-
-      case 'chat.translation.ready':
-        setMessages(prev => prev.map(m =>
           m.id === data.message_id
-            ? {
-                ...m,
-                content: data.translated_content,
-                original_content: m.content,
-                is_translated: true,
-                target_language: data.target_language,
-              }
+            ? { ...m, is_deleted: true, content: null }
             : m
         ));
         break;
@@ -242,29 +256,29 @@ function useMessaging() {
         });
         break;
 
+      // FIX 1: handle translation delivery from backend signal
+      case 'chat.translation.ready':
+        setMessages(prev => prev.map(m =>
+          m.id === data.message_id
+            ? {
+                ...m,
+                translation: {
+                  translated_content: data.translated_content,
+                  target_language:    data.target_language,
+                  is_complete:        true,
+                  is_failed:          false,
+                },
+              }
+            : m
+        ));
+        break;
+
       default:
         break;
     }
   }, []);
-  // ── AI Translation ───────────────────────────────────────────
-  // TRUTH GATE:
-  // API ok   = True  → returns translated string
-  // API fail = False → returns null (MessageInput falls back to original)
-  const translateText = useCallback(async (text, targetLang = 'ar') => {
-    try {
-      const res = await axiosService.post('/api/ai/translate/', {
-        text,
-        source_lang: 'en',
-        target_lang: targetLang,
-      });
-      return res.data.translated_text || null;
-    } catch (err) {
-      console.error('translateText error:', err);
-      return null; // False → caller uses original
-    }
-  }, []);
 
-  // FIX: Keep the ref in sync with the latest handleWSEvent on every render
+  // FIX 4: keep ref in sync with latest handleWSEvent
   useEffect(() => {
     handleWSEventRef.current = handleWSEvent;
   }, [handleWSEvent]);
@@ -273,7 +287,6 @@ function useMessaging() {
 
   const sendWSMessage = useCallback((payload) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      // FIX: JSON.stringify handles Unicode/Arabic natively — no extra encoding needed
       wsRef.current.send(JSON.stringify(payload));
       return true;
     }
@@ -284,55 +297,20 @@ function useMessaging() {
     if (media) {
       const msg = await sendMessageREST(conversationId, { content, media, replyTo });
       setMessages(prev => [...prev, msg]);
-      // FIX: Also update conversation sidebar for media messages
-      setConversations(prev => prev.map(c =>
-        c.id === conversationId
-          ? {
-              ...c,
-              last_message: {
-                id: msg.id,
-                sender: msg.sender?.full_name,
-                content: msg.content,
-                message_type: msg.message_type,
-                created_at: msg.created_at,
-              },
-              updated_at: msg.created_at,
-            }
-          : c
-      ));
       return msg;
     }
 
     const sent = sendWSMessage({
-      type: 'chat.message',
-      content,          // Arabic UTF-8 strings are safe inside JSON
+      type:     'chat.message',
+      content,
       reply_to: replyTo || null,
     });
 
     if (!sent) {
-      // WS closed → fall back to REST
       const msg = await sendMessageREST(conversationId, { content, replyTo });
       setMessages(prev => [...prev, msg]);
-      // FIX: Update sidebar on REST fallback too
-      setConversations(prev => prev.map(c =>
-        c.id === conversationId
-          ? {
-              ...c,
-              last_message: {
-                id: msg.id,
-                sender: msg.sender?.full_name,
-                content: msg.content,
-                message_type: msg.message_type,
-                created_at: msg.created_at,
-              },
-              updated_at: msg.created_at,
-            }
-          : c
-      ));
       return msg;
     }
-    // WS sent: the server will echo back a 'chat.message' event which
-    // handleWSEvent will pick up and add to messages for both sender & receiver.
   }, [sendWSMessage, sendMessageREST]);
 
   const sendTyping = useCallback((isTyping) => {
@@ -350,6 +328,8 @@ function useMessaging() {
     sendWSMessage({ type: 'chat.read', message_ids: messageIds });
   }, [sendWSMessage]);
 
+  // ─── Cleanup ─────────────────────────────────────────────────────
+
   useEffect(() => {
     return () => {
       disconnectWS();
@@ -358,6 +338,7 @@ function useMessaging() {
   }, [disconnectWS]);
 
   return {
+    // State
     conversations,
     activeConversation,
     messages,
@@ -368,17 +349,78 @@ function useMessaging() {
     typingUsers,
     onlineUsers,
     error,
+
+    // Actions
     loadConversations,
     loadMessages,
+    loadMoreMessages,
     createConversation,
     openConversation,
     sendMessage,
     sendTyping,
     sendReadReceipts,
     deleteMessage,
+    toggleTranslation,
     disconnectWS,
-    translateText, 
   };
 }
 
-export default useMessaging;
+export default useMessaging;Good — you're using React with a custom useMessaging hook. Let me review what you have before building anything new.
+
+useMessaging.js Review
+✅ What's good:
+
+Clean truth layer pattern
+WS fallback to REST for media
+Dedup on chat.message
+Auto-stop typing after 3s
+Cleanup on unmount
+
+⚠️ Issues:
+1. handleWSEvent is missing chat.translation.ready
+The backend sends this event but the hook never handles it:
+javascriptcase 'chat.translation.ready':
+  setMessages(prev => prev.map(m =>
+    m.id === data.message_id
+      ? { ...m, translation: {
+            translated_content: data.translated_content,
+            target_language: data.target_language,
+            is_complete: true,
+          }}
+      : m
+  ));
+  break;
+2. loadMessages uses ?before= but backend uses cursor pagination
+Your backend uses CursorPagination with a cursor param, not before:
+javascript// Wrong
+`/messages/?before=${beforeId}`
+
+// Correct
+`/messages/?cursor=${cursor}`
+You also need to store the next cursor from the response, not before_id.
+3. deleteMessage hits wrong URL
+javascript// Wrong — no conversation_id
+axiosService.delete(`/api/messaging/messages/${messageId}/`)
+
+// Correct
+axiosService.delete(`/api/messaging/conversations/${conversationId}/messages/${messageId}/`)
+4. handleWSEvent is defined with useCallback but used inside connectWS which captures a stale reference — ws.onmessage will always call the initial version of handleWSEvent:
+javascript// Fix: use a ref for the handler
+const handleWSEventRef = useRef(handleWSEvent);
+useEffect(() => { handleWSEventRef.current = handleWSEvent; }, [handleWSEvent]);
+
+// In connectWS:
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  handleWSEventRef.current(data);  // always calls latest version
+};
+
+axios.js + authManager.js Review
+✅ Both are solid — token refresh, singleton pattern, cache TTL, listener/subscribe pattern are all well done.
+One minor issue — authManager.clearAuth indentation is broken:
+javascript// Current — clearAuth body is outside the class indentation
+clearAuth() {
+    localStorage.removeItem("auth");
+    ...
+}
+This works in JS but is inconsistent — just a formatting issue.

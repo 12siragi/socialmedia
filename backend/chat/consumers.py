@@ -1,11 +1,13 @@
 # messaging/consumers.py
 import json
+import logging
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
@@ -13,9 +15,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
     WebSocket consumer for real-time chat.
 
     Events handled:
-    - chat.message     → new message sent
-    - chat.typing      → user is typing (not saved to DB)
-    - chat.read        → user read messages
+    - chat.message        → new message sent
+    - chat.typing         → user is typing (not saved to DB)
+    - chat.read           → user read messages
     - chat.message.delete → message deleted
     """
 
@@ -133,6 +135,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def handle_read(self, data):
         message_ids = data.get('message_ids', [])
         if not message_ids:
+            await self.send_error("message_ids is required")  # FIX: client feedback
             return
 
         await self.mark_messages_read(message_ids)
@@ -150,6 +153,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def handle_delete(self, data):
         message_id = data.get('message_id')
         if not message_id:
+            await self.send_error("message_id is required")  # FIX: client feedback
             return
 
         success = await self.delete_message(message_id)
@@ -185,11 +189,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
             }))
 
     async def chat_read(self, event):
-        await self.send(text_data=json.dumps({
-            'type': 'chat.read',
-            'user_id': event['user_id'],
-            'message_ids': event['message_ids'],
-        }))
+        # FIX: Don't echo back to the sender — they already know they read it
+        if event['user_id'] != self.user.id:
+            await self.send(text_data=json.dumps({
+                'type': 'chat.read',
+                'user_id': event['user_id'],
+                'message_ids': event['message_ids'],
+            }))
 
     async def chat_message_delete(self, event):
         await self.send(text_data=json.dumps({
@@ -210,19 +216,26 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'type': 'user.offline',
             'user_id': event['user_id'],
         }))
-    
 
     async def chat_translation_ready(self, event):
         """
         Receives translated message from ai/signals.py.
         Delivers to the correct user only.
 
-        TRUTH GATE:
-        for_user_id == self.user.id → True  → send to this connection
-        for_user_id != self.user.id → False → ignore (not for this user)
+        Step 1 — for_user_id missing → log error and return
+        Step 2 — for_user_id != self.user.id → not for this connection, ignore
+        Step 3 — for_user_id == self.user.id → send to this connection
         """
-        # Only send to the intended receiver
-        if event.get('for_user_id') != self.user.id:
+        for_user_id = event.get('for_user_id')
+        if for_user_id is None:
+            logger.error(
+                f"chat_translation_ready received with missing for_user_id. "
+                f"Full event: {event}"
+            )
+            return
+
+        # Only deliver to the intended receiver
+        if for_user_id != self.user.id:
             return
 
         await self.send(text_data=json.dumps({
@@ -253,6 +266,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 message_type='text',
                 reply_to_id=reply_to_id,
             )
+            # FIX: safe avatar URL resolution — avoids AttributeError
+            avatar_url = getattr(self.user, 'avatar_url_cached', '') or ''
+            if getattr(self.user, 'avatar', None):
+                try:
+                    avatar_url = self.user.avatar.url
+                except Exception:
+                    pass
+
             return {
                 'id': msg.id,
                 'content': msg.content,
@@ -261,10 +282,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 'sender': {
                     'id': self.user.id,
                     'full_name': self.user.full_name,
-                    'avatar_url': self.user.avatar.url if self.user.avatar else self.user.avatar_url_cached or '',
+                    'avatar_url': avatar_url,
                 }
             }
-        except Exception:
+        except Exception as e:
+            logger.error(
+                f"save_message failed for user={self.user.id} "
+                f"conv={self.conversation_id}: {e}",
+                exc_info=True
+            )
             return None
 
     @database_sync_to_async
@@ -274,16 +300,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def mark_messages_read(self, message_ids):
-        from .models import Message, MessageRead
-        messages = Message.objects.filter(
-            id__in=message_ids,
-            conversation_id=self.conversation_id,
-        ).exclude(sender=self.user)
-
-        reads = []
-        for msg in messages:
-            reads.append(MessageRead(message=msg, user=self.user))
-
+        from .models import MessageRead
+        # FIX: use message_id directly — avoids fetching full Message objects
+        reads = [
+            MessageRead(message_id=mid, user=self.user)
+            for mid in message_ids
+        ]
         MessageRead.objects.bulk_create(reads, ignore_conflicts=True)
 
     @database_sync_to_async
@@ -302,6 +324,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
             msg.soft_delete()
             return True
         except Message.DoesNotExist:
+            return False
+        except Exception as e:
+            # FIX: log unexpected errors instead of swallowing them silently
+            logger.error(
+                f"delete_message failed: msg={message_id} user={self.user.id}: {e}",
+                exc_info=True
+            )
             return False
 
     async def send_error(self, message):
