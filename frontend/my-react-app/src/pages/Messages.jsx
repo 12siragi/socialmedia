@@ -1,193 +1,344 @@
-// pages/MessagingPage.jsx
-import React, { useEffect, useState, useCallback } from "react";
-import useMessaging from "../hooks/useMessaging";
-import ConversationList from "../components/messaging/ConversationList";
-import ChatWindow from "../components/messaging/ChatWindow";
-import { authManager } from "../components/helpers/authManager";
+// hooks/useMessaging.js
+import { useState, useCallback, useRef, useEffect } from "react";
 import axiosService from "../components/helpers/axios";
+import { authManager } from "../components/helpers/authManager";
 
-// ─── New Conversation Modal ───────────────────────────────────────────────────
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL || "";
+const WS_URL = BACKEND_URL.replace("https://", "wss://").replace("http://", "ws://");
 
-function NewConversationModal({ onClose, onCreate }) {
-  const [search, setSearch]       = useState("");
-  const [results, setResults]     = useState([]);
-  const [selected, setSelected]   = useState(null);
-  const [isGroup, setIsGroup]     = useState(false);
-  const [groupName, setGroupName] = useState("");
-  const [loading, setLoading]     = useState(false);
-  const [creating, setCreating]   = useState(false);
+// =============================================================================
+// TRUTH LAYER: All messaging state in one hook
+// conversations:       loaded = array, empty = [], not fetched = null
+// activeConversation:  selected = object, none = null
+// messages:            loaded for activeConversation
+// wsConnected:         True if WebSocket open, False if closed/error
+// =============================================================================
 
-  const handleSearch = useCallback(async (q) => {
-    setSearch(q);
-    if (q.trim().length < 2) { setResults([]); return; }
-    setLoading(true);
+function useMessaging() {
+  const [conversations, setConversations]               = useState([]);
+  const [activeConversation, setActiveConversation]     = useState(null);
+  const [messages, setMessages]                         = useState([]);
+  const [wsConnected, setWsConnected]                   = useState(false);
+  const [loadingConversations, setLoadingConversations] = useState(false);
+  const [loadingMessages, setLoadingMessages]           = useState(false);
+  const [hasMoreMessages, setHasMoreMessages]           = useState(false);
+  const [nextCursor, setNextCursor]                     = useState(null); // FIX 2: cursor pagination
+  const [typingUsers, setTypingUsers]                   = useState({});   // { userId: fullName }
+  const [onlineUsers, setOnlineUsers]                   = useState(new Set());
+  const [error, setError]                               = useState(null);
+
+  const wsRef              = useRef(null);
+  const typingTimerRef     = useRef(null);
+  const isFetching         = useRef(false);
+  const handleWSEventRef   = useRef(null); // FIX 4: stable WS handler ref
+
+  // --- REST API ----------------------------------------------------
+
+  const loadConversations = useCallback(async () => {
+    if (isFetching.current) return;
+    isFetching.current = true;
+    setLoadingConversations(true);
+    setError(null);
     try {
-      const res = await axiosService.get(`/api/accounts/users/search/?q=${encodeURIComponent(q)}`);
-      setResults(res.data?.results ?? res.data ?? []);
-    } catch {
-      setResults([]);
+      const res = await axiosService.get("/api/chat/conversations/");
+      setConversations(res.data);
+    } catch (err) {
+      setError("Failed to load conversations.");
     } finally {
-      setLoading(false);
+      setLoadingConversations(false);
+      isFetching.current = false;
     }
   }, []);
 
-  const handleCreate = async () => {
-    if (!selected || creating) return;
-    setCreating(true);
+  // FIX 2: cursor-based pagination - use ?cursor= not ?before=
+  const loadMessages = useCallback(async (conversationId, cursor = null) => {
+    setLoadingMessages(true);
     try {
-      await onCreate({
-        participantIds: [selected.id],
-        isGroup,
-        name: isGroup ? groupName : "",
-      });
-      onClose();
-    } catch (e) {
-      console.error("Failed to create conversation:", e);
+      const url = cursor
+        ? `/api/chat/conversations/${conversationId}/messages/?cursor=${cursor}`
+        : `/api/chat/conversations/${conversationId}/messages/`;
+      const res = await axiosService.get(url);
+
+      // DRF CursorPagination returns { next, previous, results }
+      const results   = res.data.results  ?? res.data;
+      const nextUrl   = res.data.next     ?? null;
+
+      // Extract cursor value from next URL if present
+      const nextCursorVal = nextUrl
+        ? new URL(nextUrl).searchParams.get("cursor")
+        : null;
+
+      if (cursor) {
+        setMessages(prev => [...results, ...prev]); // prepend older messages
+      } else {
+        setMessages(results); // fresh load
+      }
+      setNextCursor(nextCursorVal);
+      setHasMoreMessages(!!nextCursorVal);
+    } catch (err) {
+      setError("Failed to load messages.");
     } finally {
-      setCreating(false);
+      setLoadingMessages(false);
     }
-  };
+  }, []);
 
-  return (
-    <div style={{
-      position: "fixed", inset: 0, zIndex: 1000,
-      background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      fontFamily: "'DM Sans', sans-serif",
-    }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div style={{
-        background: "#0f0f13", border: "1px solid #1e1e2e",
-        borderRadius: 16, width: 420, maxWidth: "90vw",
-        padding: 24, boxShadow: "0 24px 64px rgba(0,0,0,0.6)",
-      }}>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20 }}>
-          <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#f1f1f1" }}>
-            New Conversation
-          </h3>
-          <button onClick={onClose} style={{
-            background: "none", border: "none", color: "#555",
-            cursor: "pointer", fontSize: 20,
-          }}>×</button>
-        </div>
+  const loadMoreMessages = useCallback((conversationId) => {
+    if (hasMoreMessages && nextCursor) {
+      loadMessages(conversationId, nextCursor);
+    }
+  }, [hasMoreMessages, nextCursor, loadMessages]);
 
-        {/* Search */}
-        <input
-          autoFocus
-          value={search}
-          onChange={e => handleSearch(e.target.value)}
-          placeholder="Search users…"
-          style={{
-            width: "100%", background: "#1a1a2e", border: "1px solid #2a2a3e",
-            borderRadius: 10, padding: "10px 14px", color: "#e8e8f0",
-            fontSize: 14, outline: "none", boxSizing: "border-box",
-            fontFamily: "'DM Sans', sans-serif",
-          }}
-        />
+  const createConversation = useCallback(async ({ participantIds, isGroup = false, name = "" }) => {
+    const res = await axiosService.post("/api/chat/conversations/", {
+      participant_ids: participantIds,
+      is_group: isGroup,
+      name,
+    });
+    const newConv = res.data;
+    setConversations(prev => [newConv, ...prev.filter(c => c.id !== newConv.id)]);
+    return newConv;
+  }, []);
 
-        {/* Results */}
-        <div style={{ maxHeight: 200, overflowY: "auto", marginTop: 10 }}>
-          {loading && (
-            <div style={{ padding: 12, color: "#555", fontSize: 13, textAlign: "center" }}>
-              Searching…
-            </div>
-          )}
-          {!loading && results.map(user => (
-            <div
-              key={user.id}
-              onClick={() => setSelected(user)}
-              style={{
-                display: "flex", alignItems: "center", gap: 10,
-                padding: "10px 12px", borderRadius: 10, cursor: "pointer",
-                background: selected?.id === user.id ? "#1a1a2e" : "transparent",
-                border: selected?.id === user.id ? "1px solid #3b82f6" : "1px solid transparent",
-                marginBottom: 4, transition: "all 0.15s",
-              }}
-            >
-              <div style={{
-                width: 36, height: 36, borderRadius: "50%",
-                background: "#3b82f6", display: "flex", alignItems: "center",
-                justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 13,
-              }}>
-                {user.full_name?.[0]?.toUpperCase() || "?"}
-              </div>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "#f1f1f1" }}>
-                  {user.full_name}
-                </div>
-                <div style={{ fontSize: 12, color: "#555" }}>
-                  @{user.username || user.email}
-                </div>
-              </div>
-              {selected?.id === user.id && (
-                <span style={{ marginLeft: "auto", color: "#3b82f6", fontSize: 16 }}>✓</span>
-              )}
-            </div>
-          ))}
-        </div>
+  const sendMessageREST = useCallback(async (conversationId, { content, media, replyTo }) => {
+    const formData = new FormData();
+    if (content) formData.append("content", content);
+    if (media)   formData.append("media", media);
+    if (replyTo) formData.append("reply_to", replyTo);
 
-        {/* Group toggle */}
-        {selected && (
-          <div style={{ marginTop: 16 }}>
-            <label style={{
-              display: "flex", alignItems: "center", gap: 8,
-              cursor: "pointer", fontSize: 13, color: "#888",
-            }}>
-              <input
-                type="checkbox"
-                checked={isGroup}
-                onChange={e => setIsGroup(e.target.checked)}
-                style={{ accentColor: "#3b82f6" }}
-              />
-              Create as group conversation
-            </label>
-            {isGroup && (
-              <input
-                value={groupName}
-                onChange={e => setGroupName(e.target.value)}
-                placeholder="Group name…"
-                style={{
-                  marginTop: 10, width: "100%", background: "#1a1a2e",
-                  border: "1px solid #2a2a3e", borderRadius: 10,
-                  padding: "10px 14px", color: "#e8e8f0", fontSize: 14,
-                  outline: "none", boxSizing: "border-box",
-                  fontFamily: "'DM Sans', sans-serif",
-                }}
-              />
-            )}
-          </div>
-        )}
+    const res = await axiosService.post(
+      `/api/chat/conversations/${conversationId}/messages/`,
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" } }
+    );
+    return res.data;
+  }, []);
 
-        {/* Create button */}
-        <button
-          onClick={handleCreate}
-          disabled={!selected || creating || (isGroup && !groupName.trim())}
-          style={{
-            marginTop: 20, width: "100%", padding: "11px 0",
-            background: (!selected || creating || (isGroup && !groupName.trim()))
-              ? "#1e1e2e" : "#3b82f6",
-            border: "none", borderRadius: 10, color: "#fff",
-            fontSize: 14, fontWeight: 700, cursor:
-              (!selected || creating || (isGroup && !groupName.trim()))
-                ? "not-allowed" : "pointer",
-            transition: "background 0.2s",
-            fontFamily: "'DM Sans', sans-serif",
-          }}
-        >
-          {creating ? "Creating…" : "Start Conversation"}
-        </button>
-      </div>
-    </div>
-  );
-}
+  // FIX 3: correct delete URL includes conversationId
+  const deleteMessage = useCallback(async (conversationId, messageId) => {
+    await axiosService.delete(
+      `/api/chat/conversations/${conversationId}/messages/${messageId}/`
+    );
+    setMessages(prev => prev.map(m =>
+      m.id === messageId ? { ...m, is_deleted: true, content: null } : m
+    ));
+  }, []);
 
-// ─── Messaging Page ───────────────────────────────────────────────────────────
+  const toggleTranslation = useCallback(async (conversationId, isEnabled) => {
+    const res = await axiosService.post(
+      `/api/ai/translation-preference/${conversationId}/`,
+      { is_enabled: isEnabled }
+    );
+    // Update conversation in list with new toggle state
+    setConversations(prev => prev.map(c =>
+      c.id === conversationId
+        ? { ...c, translation_enabled: res.data.is_enabled }
+        : c
+    ));
+    return res.data;
+  }, []);
 
-export default function MessagingPage() {
-  const [showNewConv, setShowNewConv] = useState(false);
+  // --- WebSocket ---------------------------------------------------
 
-  const {
+  const connectWS = useCallback((conversationId) => {
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+
+    const token = authManager.getAccessToken();
+    if (!token) return;
+
+    const wsEndpoint = `${WS_URL}/ws/chat/${conversationId}/?token=${token}`;
+    const ws = new WebSocket(wsEndpoint);
+    wsRef.current = ws;
+
+    ws.onopen  = () => setWsConnected(true);
+    ws.onclose = () => setWsConnected(false);
+    ws.onerror = () => setWsConnected(false);
+
+    // FIX 4: always call latest handleWSEvent via ref - avoids stale closure
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      handleWSEventRef.current?.(data);
+    };
+  }, []);
+
+  const disconnectWS = useCallback(() => {
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+    setWsConnected(false);
+    setTypingUsers({});
+    setOnlineUsers(new Set());
+  }, []);
+
+  const openConversation = useCallback((conversation) => {
+    setActiveConversation(conversation);
+    setMessages([]);
+    setNextCursor(null);
+    loadMessages(conversation.id);
+    connectWS(conversation.id);
+
+    setConversations(prev => prev.map(c =>
+      c.id === conversation.id ? { ...c, unread_count: 0 } : c
+    ));
+  }, [loadMessages, connectWS]);
+
+  // --- WS Event Handler --------------------------------------------
+
+  const handleWSEvent = useCallback((data) => {
+    switch (data.type) {
+
+      case 'chat.message':
+        setMessages(prev => {
+          if (prev.find(m => m.id === data.message.id)) return prev;
+          return [...prev, data.message];
+        });
+        setConversations(prev => prev.map(c =>
+          c.id === data.message.conversation
+            ? {
+                ...c,
+                last_message: {
+                  id:           data.message.id,
+                  sender:       data.message.sender.full_name,
+                  content:      data.message.content,
+                  message_type: data.message.message_type,
+                  created_at:   data.message.created_at,
+                },
+                updated_at: data.message.created_at,
+              }
+            : c
+        ));
+        setTypingUsers(prev => {
+          const next = { ...prev };
+          delete next[data.message.sender.id];
+          return next;
+        });
+        break;
+
+      case 'chat.typing':
+        setTypingUsers(prev => {
+          if (data.is_typing) {
+            return { ...prev, [data.user_id]: data.full_name };
+          }
+          const next = { ...prev };
+          delete next[data.user_id];
+          return next;
+        });
+        break;
+
+      case 'chat.read':
+        setMessages(prev => prev.map(m =>
+          data.message_ids.includes(m.id)
+            ? { ...m, read_by: [...(m.read_by || []), { user: { id: data.user_id } }] }
+            : m
+        ));
+        break;
+
+      case 'chat.message.delete':
+        setMessages(prev => prev.map(m =>
+          m.id === data.message_id
+            ? { ...m, is_deleted: true, content: null }
+            : m
+        ));
+        break;
+
+      case 'user.online':
+        setOnlineUsers(prev => new Set([...prev, data.user_id]));
+        break;
+
+      case 'user.offline':
+        setOnlineUsers(prev => {
+          const next = new Set(prev);
+          next.delete(data.user_id);
+          return next;
+        });
+        break;
+
+      // FIX 1: handle translation delivery from backend signal
+      case 'chat.translation.ready':
+        setMessages(prev => prev.map(m =>
+          m.id === data.message_id
+            ? {
+                ...m,
+                translation: {
+                  translated_content: data.translated_content,
+                  target_language:    data.target_language,
+                  is_complete:        true,
+                  is_failed:          false,
+                },
+              }
+            : m
+        ));
+        break;
+
+      default:
+        break;
+    }
+  }, []);
+
+  // FIX 4: keep ref in sync with latest handleWSEvent
+  useEffect(() => {
+    handleWSEventRef.current = handleWSEvent;
+  }, [handleWSEvent]);
+
+  // --- WS Send helpers ---------------------------------------------
+
+  const sendWSMessage = useCallback((payload) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify(payload));
+      return true;
+    }
+    return false;
+  }, []);
+
+  const sendMessage = useCallback(async (conversationId, { content, media, replyTo }) => {
+    if (media) {
+      const msg = await sendMessageREST(conversationId, { content, media, replyTo });
+      setMessages(prev => [...prev, msg]);
+      return msg;
+    }
+
+    const sent = sendWSMessage({
+      type:     'chat.message',
+      content,
+      reply_to: replyTo || null,
+    });
+
+    if (!sent) {
+      const msg = await sendMessageREST(conversationId, { content, replyTo });
+      setMessages(prev => [...prev, msg]);
+      return msg;
+    }
+  }, [sendWSMessage, sendMessageREST]);
+
+  const sendTyping = useCallback((isTyping) => {
+    sendWSMessage({ type: 'chat.typing', is_typing: isTyping });
+    if (isTyping) {
+      clearTimeout(typingTimerRef.current);
+      typingTimerRef.current = setTimeout(() => {
+        sendWSMessage({ type: 'chat.typing', is_typing: false });
+      }, 3000);
+    }
+  }, [sendWSMessage]);
+
+  const sendReadReceipts = useCallback((messageIds) => {
+    if (messageIds.length === 0) return;
+    sendWSMessage({ type: 'chat.read', message_ids: messageIds });
+  }, [sendWSMessage]);
+
+  // --- Cleanup -----------------------------------------------------
+
+  useEffect(() => {
+    return () => {
+      disconnectWS();
+      clearTimeout(typingTimerRef.current);
+    };
+  }, [disconnectWS]);
+
+  return {
+    // State
     conversations,
     activeConversation,
     messages,
@@ -199,112 +350,19 @@ export default function MessagingPage() {
     onlineUsers,
     error,
 
+    // Actions
     loadConversations,
-    openConversation,
+    loadMessages,
+    loadMoreMessages,
     createConversation,
+    openConversation,
     sendMessage,
     sendTyping,
     sendReadReceipts,
     deleteMessage,
-    loadMoreMessages,
     toggleTranslation,
-  } = useMessaging();
-
-  // Load conversations on mount
-  useEffect(() => {
-    loadConversations();
-  }, [loadConversations]);
-
-  const handleCreateConversation = useCallback(async (payload) => {
-    const conv = await createConversation(payload);
-    openConversation(conv);
-  }, [createConversation, openConversation]);
-
-  return (
-    <div style={{
-      display: "flex", height: "100vh", width: "100%",
-      background: "#0a0a10", overflow: "hidden",
-      fontFamily: "'DM Sans', sans-serif",
-    }}>
-
-      {/* Google Font */}
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
-        * { box-sizing: border-box; }
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #2a2a3e; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #3a3a4e; }
-      `}</style>
-
-      {/* Sidebar — Conversation List */}
-      <ConversationList
-        conversations={conversations}
-        activeConversation={activeConversation}
-        onlineUsers={onlineUsers}
-        loadingConversations={loadingConversations}
-        onSelect={openConversation}
-        onNewConversation={() => setShowNewConv(true)}
-      />
-
-      {/* Main — Chat Window */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
-        {/* Error banner */}
-        {error && (
-          <div style={{
-            background: "#2d1515", borderBottom: "1px solid #ef4444",
-            padding: "8px 16px", fontSize: 13, color: "#ef4444",
-            display: "flex", justifyContent: "space-between",
-          }}>
-            {error}
-          </div>
-        )}
-
-        {/* WS status bar */}
-        {activeConversation && !wsConnected && (
-          <div style={{
-            background: "#1a1500", borderBottom: "1px solid #f59e0b",
-            padding: "6px 16px", fontSize: 12, color: "#f59e0b",
-            display: "flex", alignItems: "center", gap: 6,
-          }}>
-            <div style={{
-              width: 6, height: 6, borderRadius: "50%",
-              background: "#f59e0b", animation: "pulse 1.5s infinite",
-            }} />
-            Reconnecting…
-            <style>{`
-              @keyframes pulse {
-                0%, 100% { opacity: 1; }
-                50%       { opacity: 0.3; }
-              }
-            `}</style>
-          </div>
-        )}
-
-        <ChatWindow
-          conversation={activeConversation}
-          messages={messages}
-          typingUsers={typingUsers}
-          onlineUsers={onlineUsers}
-          wsConnected={wsConnected}
-          loadingMessages={loadingMessages}
-          hasMoreMessages={hasMoreMessages}
-          onSendMessage={sendMessage}
-          onTyping={sendTyping}
-          onDeleteMessage={deleteMessage}
-          onLoadMore={() => loadMoreMessages(activeConversation?.id)}
-          onToggleTranslation={toggleTranslation}
-          onReadReceipts={sendReadReceipts}
-        />
-      </div>
-
-      {/* New Conversation Modal */}
-      {showNewConv && (
-        <NewConversationModal
-          onClose={() => setShowNewConv(false)}
-          onCreate={handleCreateConversation}
-        />
-      )}
-    </div>
-  );
+    disconnectWS,
+  };
 }
+
+export default useMessaging;
