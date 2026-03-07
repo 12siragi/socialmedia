@@ -11,6 +11,7 @@ import "../components/css/Messages.css";
 function Messages() {
   const { user } = useAuth();
   const [showNewModal, setShowNewModal] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(true);
 
   const {
     conversations,
@@ -40,16 +41,22 @@ function Messages() {
     return () => disconnectWS();
   }, []);
 
+  const handleSelectConversation = (conv) => {
+    openConversation(conv);
+    setShowSidebar(false); // hide sidebar on mobile when conversation selected
+  };
+
   const handleNewConversation = async ({ participantIds, isGroup, name }) => {
     const conv = await createConversation({ participantIds, isGroup, name });
     setShowNewModal(false);
     openConversation(conv);
+    setShowSidebar(false);
   };
 
   return (
     <Layout>
       <div className="messages-page">
-        <div className="messages-sidebar">
+        <div className={`messages-sidebar ${showSidebar ? "" : "hidden"}`}>
           <div className="messages-sidebar-header">
             <h5 className="mb-0">Messages</h5>
             <button
@@ -69,11 +76,11 @@ function Messages() {
             loading={loadingConversations}
             currentUser={user}
             onlineUsers={onlineUsers}
-            onSelect={openConversation}
+            onSelect={handleSelectConversation}
           />
         </div>
 
-        <div className="messages-main">
+        <div className={`messages-main ${!showSidebar ? "visible" : ""}`}>
           {activeConversation ? (
             <ChatWindow
               conversation={activeConversation}
@@ -90,6 +97,7 @@ function Messages() {
               onLoadMore={() => loadMoreMessages(activeConversation.id)}
               onDeleteMessage={deleteMessage}
               onToggleTranslation={toggleTranslation}
+              onBackToList={() => setShowSidebar(true)}
             />
           ) : (
             <div className="messages-empty">

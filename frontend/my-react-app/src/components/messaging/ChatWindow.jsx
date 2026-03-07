@@ -35,6 +35,7 @@ export default function ChatWindow({
   onLoadMore,
   onToggleTranslation,
   onReadReceipts,
+  onBackToList,
 }) {
   const bottomRef   = useRef(null);
   const messagesRef = useRef(null);
@@ -121,6 +122,15 @@ export default function ChatWindow({
       {/* Header */}
       <div className="chat-header">
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {onBackToList && (
+            <button
+              className="mobile-back-btn"
+              onClick={onBackToList}
+              aria-label="Back to conversations"
+            >
+              <i className="bi bi-arrow-left" />
+            </button>
+          )}
           <div style={{ position: "relative" }}>
             <Avatar name={getTitle()} size={36} />
             {isOnline() && (
