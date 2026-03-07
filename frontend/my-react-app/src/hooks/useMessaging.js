@@ -32,7 +32,7 @@ function useMessaging() {
   const isFetching         = useRef(false);
   const handleWSEventRef   = useRef(null); // FIX 4: stable WS handler ref
 
-  // ─── REST API ────────────────────────────────────────────────────
+  // --- REST API ----------------------------------------------------
 
   const loadConversations = useCallback(async () => {
     if (isFetching.current) return;
@@ -50,7 +50,7 @@ function useMessaging() {
     }
   }, []);
 
-  // FIX 2: cursor-based pagination — use ?cursor= not ?before=
+  // FIX 2: cursor-based pagination - use ?cursor= not ?before=
   const loadMessages = useCallback(async (conversationId, cursor = null) => {
     setLoadingMessages(true);
     try {
@@ -137,7 +137,7 @@ function useMessaging() {
     return res.data;
   }, []);
 
-  // ─── WebSocket ───────────────────────────────────────────────────
+  // --- WebSocket ---------------------------------------------------
 
   const connectWS = useCallback((conversationId) => {
     if (wsRef.current) {
@@ -156,7 +156,7 @@ function useMessaging() {
     ws.onclose = () => setWsConnected(false);
     ws.onerror = () => setWsConnected(false);
 
-    // FIX 4: always call latest handleWSEvent via ref — avoids stale closure
+    // FIX 4: always call latest handleWSEvent via ref - avoids stale closure
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
       handleWSEventRef.current?.(data);
@@ -185,7 +185,7 @@ function useMessaging() {
     ));
   }, [loadMessages, connectWS]);
 
-  // ─── WS Event Handler ────────────────────────────────────────────
+  // --- WS Event Handler --------------------------------------------
 
   const handleWSEvent = useCallback((data) => {
     switch (data.type) {
@@ -283,7 +283,7 @@ function useMessaging() {
     handleWSEventRef.current = handleWSEvent;
   }, [handleWSEvent]);
 
-  // ─── WS Send helpers ─────────────────────────────────────────────
+  // --- WS Send helpers ---------------------------------------------
 
   const sendWSMessage = useCallback((payload) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -328,7 +328,7 @@ function useMessaging() {
     sendWSMessage({ type: 'chat.read', message_ids: messageIds });
   }, [sendWSMessage]);
 
-  // ─── Cleanup ─────────────────────────────────────────────────────
+  // --- Cleanup -----------------------------------------------------
 
   useEffect(() => {
     return () => {
@@ -365,62 +365,4 @@ function useMessaging() {
   };
 }
 
-export default useMessaging;Good — you're using React with a custom useMessaging hook. Let me review what you have before building anything new.
-
-useMessaging.js Review
-✅ What's good:
-
-Clean truth layer pattern
-WS fallback to REST for media
-Dedup on chat.message
-Auto-stop typing after 3s
-Cleanup on unmount
-
-⚠️ Issues:
-1. handleWSEvent is missing chat.translation.ready
-The backend sends this event but the hook never handles it:
-javascriptcase 'chat.translation.ready':
-  setMessages(prev => prev.map(m =>
-    m.id === data.message_id
-      ? { ...m, translation: {
-            translated_content: data.translated_content,
-            target_language: data.target_language,
-            is_complete: true,
-          }}
-      : m
-  ));
-  break;
-2. loadMessages uses ?before= but backend uses cursor pagination
-Your backend uses CursorPagination with a cursor param, not before:
-javascript// Wrong
-`/messages/?before=${beforeId}`
-
-// Correct
-`/messages/?cursor=${cursor}`
-You also need to store the next cursor from the response, not before_id.
-3. deleteMessage hits wrong URL
-javascript// Wrong — no conversation_id
-axiosService.delete(`/api/messaging/messages/${messageId}/`)
-
-// Correct
-axiosService.delete(`/api/messaging/conversations/${conversationId}/messages/${messageId}/`)
-4. handleWSEvent is defined with useCallback but used inside connectWS which captures a stale reference — ws.onmessage will always call the initial version of handleWSEvent:
-javascript// Fix: use a ref for the handler
-const handleWSEventRef = useRef(handleWSEvent);
-useEffect(() => { handleWSEventRef.current = handleWSEvent; }, [handleWSEvent]);
-
-// In connectWS:
-ws.onmessage = (event) => {
-  const data = JSON.parse(event.data);
-  handleWSEventRef.current(data);  // always calls latest version
-};
-
-axios.js + authManager.js Review
-✅ Both are solid — token refresh, singleton pattern, cache TTL, listener/subscribe pattern are all well done.
-One minor issue — authManager.clearAuth indentation is broken:
-javascript// Current — clearAuth body is outside the class indentation
-clearAuth() {
-    localStorage.removeItem("auth");
-    ...
-}
-This works in JS but is inconsistent — just a formatting issue.
+export default useMessaging;
