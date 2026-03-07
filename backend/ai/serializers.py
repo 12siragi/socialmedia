@@ -1,49 +1,48 @@
 # ai/serializers.py
 from rest_framework import serializers
-from .models import Translation, TranslationPreference
+from .models import Translation, TranslationPreference, SUPPORTED_LANGUAGES
 
 
 class TranslationSerializer(serializers.ModelSerializer):
-    """
-    Read-only serializer for a translated message.
-    Used by chat.MessageSerializer to embed translation for the requesting user.
-    """
     is_complete = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Translation
         fields = [
-            'id',
-            'message_id',
-            'source_language',
-            'target_language',
-            'translated_content',
-            'is_complete',
-            'is_failed',
-            'created_at',
+            'id', 'message_id', 'source_language', 'target_language',
+            'translated_content', 'is_complete', 'is_failed', 'created_at',
         ]
         read_only_fields = fields
 
 
 class TranslationPreferenceSerializer(serializers.ModelSerializer):
     """
-    Read/write serializer for toggling translation on/off
-    per user per conversation.
-
-    WRITE: only is_enabled is writable — user + conversation
-           are set from request context in the view, never from client input.
-    READ:  returns full state so frontend knows current toggle.
+    WRITE: is_enabled + target_language are writable.
+    READ:  returns full state so frontend knows toggle + chosen language.
     """
     class Meta:
         model = TranslationPreference
-        fields = [
-            'id',
-            'conversation',
-            'is_enabled',
-        ]
+        fields = ['id', 'conversation', 'is_enabled', 'target_language']
         read_only_fields = ['id', 'conversation']
 
-    def validate_is_enabled(self, value):
-        if not isinstance(value, bool):
-            raise serializers.ValidationError("is_enabled must be a boolean.")
-        return value
+    def validate_target_language(self, value):
+        if value is None:
+            return value
+        supported = [code for code, _ in SUPPORTED_LANGUAGES]
+        if value.strip().lower() not in supported:
+            raise serializers.ValidationError(
+                f"Unsupported language. Choose from: {supported}"
+            )
+        return value.strip().lower()
+
+    def validate(self, data):
+        is_enabled = data.get('is_enabled', getattr(self.instance, 'is_enabled', False))
+        target_language = data.get(
+            'target_language',
+            getattr(self.instance, 'target_language', None)
+        )
+        if is_enabled and not target_language:
+            raise serializers.ValidationError(
+                "target_language is required when enabling translation."
+            )
+        return data

@@ -1,57 +1,96 @@
 // components/messaging/TranslationToggle.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
+
+const LANGUAGES = [
+  { code: "ar", name: "Arabic" },
+  { code: "fr", name: "French" },
+  { code: "es", name: "Spanish" },
+  { code: "de", name: "German" },
+  { code: "tr", name: "Turkish" },
+  { code: "ur", name: "Urdu" },
+  { code: "zh", name: "Chinese" },
+  { code: "hi", name: "Hindi" },
+  { code: "ru", name: "Russian" },
+  { code: "en", name: "English" },
+];
 
 export default function TranslationToggle({ conversation, onToggle }) {
-  const [loading, setLoading] = useState(false);
-  const enabled = conversation?.translation_enabled ?? true;
+  const [enabled, setEnabled]       = useState(false);
+  const [selectedLang, setSelectedLang] = useState("");
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState("");
+  const loadingRef                  = useRef(false);
+
+  useEffect(() => {
+    if (conversation) {
+      setEnabled(conversation.translation_enabled || false);
+      setSelectedLang(conversation.translation_target_language || "");
+    }
+  }, [conversation?.id, conversation?.translation_enabled, conversation?.translation_target_language]);
 
   const handleToggle = async () => {
-    if (loading || !conversation) return;
+    if (loadingRef.current) return;
+    loadingRef.current = true;
     setLoading(true);
+    setError("");
     try {
-      await onToggle(conversation.id, !enabled);
+      if (enabled) {
+        await onToggle(conversation.id, false, null);
+        setEnabled(false);
+        setSelectedLang("");
+      } else {
+        if (!selectedLang) {
+          setError("Select a language first.");
+          return;
+        }
+        await onToggle(conversation.id, true, selectedLang);
+        setEnabled(true);
+      }
+    } catch (err) {
+      setError("Failed to update translation.");
     } finally {
       setLoading(false);
+      loadingRef.current = false;
+    }
+  };
+
+  const handleLangChange = async (e) => {
+    const lang = e.target.value;
+    setSelectedLang(lang);
+    if (enabled && lang) {
+      loadingRef.current = true;
+      setLoading(true);
+      try {
+        await onToggle(conversation.id, true, lang);
+      } finally {
+        setLoading(false);
+        loadingRef.current = false;
+      }
     }
   };
 
   return (
-    <button
-      onClick={handleToggle}
-      disabled={loading}
-      title={enabled ? "Translation on — click to turn off" : "Translation off — click to turn on"}
-      style={{
-        display: "flex", alignItems: "center", gap: 6,
-        background: enabled ? "rgba(59,130,246,0.12)" : "transparent",
-        border: `1px solid ${enabled ? "#3b82f6" : "#2a2a3e"}`,
-        borderRadius: 8, padding: "5px 10px",
-        cursor: loading ? "not-allowed" : "pointer",
-        transition: "all 0.2s",
-        fontFamily: "'DM Sans', sans-serif",
-        opacity: loading ? 0.6 : 1,
-      }}
-    >
-      <span style={{ fontSize: 14 }}>🌐</span>
-      <span style={{
-        fontSize: 12, fontWeight: 600,
-        color: enabled ? "#3b82f6" : "#555",
-      }}>
-        {loading ? "…" : enabled ? "Auto-translate ON" : "Auto-translate OFF"}
-      </span>
+    <div className="translation-toggle">
+      <select
+        value={selectedLang}
+        onChange={handleLangChange}
+        disabled={loading}
+      >
+        <option value="">Language</option>
+        {LANGUAGES.map(l => (
+          <option key={l.code} value={l.code}>{l.name}</option>
+        ))}
+      </select>
 
-      {/* Toggle pill */}
-      <div style={{
-        width: 28, height: 16, borderRadius: 8,
-        background: enabled ? "#3b82f6" : "#2a2a3e",
-        position: "relative", transition: "background 0.2s",
-      }}>
-        <div style={{
-          position: "absolute", top: 2,
-          left: enabled ? 14 : 2,
-          width: 12, height: 12, borderRadius: "50%",
-          background: "#fff", transition: "left 0.2s",
-        }} />
-      </div>
-    </button>
+      <button
+        className={`translation-toggle-btn ${enabled ? "enabled" : ""}`}
+        onClick={handleToggle}
+        disabled={loading}
+      >
+        🌐 {loading ? "…" : enabled ? "Translating to " + (LANGUAGES.find(l => l.code === selectedLang)?.name || selectedLang) : "Translate"}
+      </button>
+
+      {error && <span className="translation-error">{error}</span>}
+    </div>
   );
 }

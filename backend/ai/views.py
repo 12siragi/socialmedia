@@ -14,58 +14,69 @@ logger = logging.getLogger(__name__)
 
 class TranslationPreferenceView(APIView):
     """
-    GET  /ai/translation-preference/<conversation_id>/
-         → returns current toggle state for this user + conversation
+    GET  /api/ai/translation-preference/<conversation_id>/
+         Returns current toggle state for this user + conversation.
 
-    POST /ai/translation-preference/<conversation_id>/
-         → set is_enabled = True / False
-         Body: { "is_enabled": true }
+    POST /api/ai/translation-preference/<conversation_id>/
+         Body: { "is_enabled": true, "target_language": "ar" }
+         or:   { "is_enabled": false }
     """
     permission_classes = [IsAuthenticated]
 
-    def get(self, request, conversation_id):
+    def _get_conversation(self, request, conversation_id):
         from chat.models import Conversation
         conversation = get_object_or_404(Conversation, id=conversation_id)
-
-        # Verify user is a participant
         if not conversation.participants.filter(id=request.user.id).exists():
-            return Response(
+            return None, Response(
                 {"detail": "You are not a participant of this conversation."},
                 status=status.HTTP_403_FORBIDDEN,
             )
+        return conversation, None
+
+    def get(self, request, conversation_id):
+        conversation, err = self._get_conversation(request, conversation_id)
+        if err:
+            return err
 
         pref, _ = TranslationPreference.objects.get_or_create(
             user=request.user,
             conversation=conversation,
-            defaults={'is_enabled': True},
+            defaults={'is_enabled': False, 'target_language': None},
         )
-        serializer = TranslationPreferenceSerializer(pref)
-        return Response(serializer.data)
+        return Response(TranslationPreferenceSerializer(pref).data)
 
     def post(self, request, conversation_id):
-        from chat.models import Conversation
-        conversation = get_object_or_404(Conversation, id=conversation_id)
+        conversation, err = self._get_conversation(request, conversation_id)
+        if err:
+            return err
 
-        # Verify user is a participant
-        if not conversation.participants.filter(id=request.user.id).exists():
-            return Response(
-                {"detail": "You are not a participant of this conversation."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+        # Log incoming payload for debugging
+        logger.info(
+            f"TranslationPreference POST: user={request.user.id} "
+            f"conv={conversation_id} data={request.data}"
+        )
 
         pref, _ = TranslationPreference.objects.get_or_create(
             user=request.user,
             conversation=conversation,
-            defaults={'is_enabled': True},
+            defaults={'is_enabled': False, 'target_language': None},
         )
 
-        serializer = TranslationPreferenceSerializer(pref, data=request.data, partial=True)
+        serializer = TranslationPreferenceSerializer(
+            pref, data=request.data, partial=True
+        )
         if serializer.is_valid():
-            serializer.save()
+            instance = serializer.save()
             logger.info(
-                f"TranslationPreference updated: user={request.user.id} "
-                f"conv={conversation_id} enabled={pref.is_enabled}"
+                f"TranslationPreference saved: user={request.user.id} "
+                f"conv={conversation_id} "
+                f"enabled={instance.is_enabled} "
+                f"target={instance.target_language}"
             )
-            return Response(serializer.data)
+            return Response(TranslationPreferenceSerializer(instance).data)
 
+        logger.error(
+            f"TranslationPreference invalid: user={request.user.id} "
+            f"conv={conversation_id} errors={serializer.errors}"
+        )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

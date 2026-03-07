@@ -235,7 +235,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return
 
         # Only deliver to the intended receiver
-        if for_user_id != self.user.id:
+        # FIX: cast both to str to handle int vs UUID type mismatch
+        if str(for_user_id) != str(self.user.id):
             return
 
         await self.send(text_data=json.dumps({

@@ -1,44 +1,15 @@
-// components/messaging/ConversationList.jsx
-import React, { useEffect } from "react";
-import { authManager } from "../helpers/authManager";
+// src/components/messaging/ConversationList.jsx
+import React from "react";
+import { Spinner } from "react-bootstrap";
 
-const timeAgo = (dateStr) => {
-  if (!dateStr) return "";
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const m = Math.floor(diff / 60000);
-  if (m < 1)  return "now";
-  if (m < 60) return `${m}m`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h`;
-  return `${Math.floor(h / 24)}d`;
-};
+// =============================================================================
+// TRUTH LAYER 2: Render list based on conversations truth
+// loading = True  → spinner
+// conversations.length = 0 → empty state
+// otherwise → list
+// =============================================================================
 
-const Avatar = ({ name = "", size = 40 }) => {
-  const initials = name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
-  const colors = ["#3b82f6","#8b5cf6","#ec4899","#f59e0b","#10b981","#ef4444"];
-  const color  = colors[name.charCodeAt(0) % colors.length];
-  return (
-    <div style={{
-      width: size, height: size, borderRadius: "50%",
-      background: color, display: "flex", alignItems: "center",
-      justifyContent: "center", color: "#fff",
-      fontSize: size * 0.36, fontWeight: 700, flexShrink: 0,
-      fontFamily: "'DM Sans', sans-serif",
-    }}>
-      {initials}
-    </div>
-  );
-};
-
-export default function ConversationList({
-  conversations = [],
-  activeConversation,
-  onlineUsers = new Set(),
-  loadingConversations,
-  onSelect,
-  onNewConversation,
-}) {
-  const currentUser = authManager.getUser();
+function ConversationList({ conversations, activeId, loading, currentUser, onlineUsers, onSelect }) {
 
   const getOtherParticipant = (conv) => {
     if (conv.is_group) return null;
@@ -51,107 +22,98 @@ export default function ConversationList({
     return other?.full_name || "Unknown";
   };
 
-  return (
-    <div style={{
-      width: 300, height: "100%", display: "flex", flexDirection: "column",
-      background: "#0f0f13", borderRight: "1px solid #1e1e2e",
-      fontFamily: "'DM Sans', sans-serif",
-    }}>
-      {/* Header */}
-      <div style={{
-        padding: "20px 16px 12px", display: "flex",
-        alignItems: "center", justifyContent: "space-between",
-        borderBottom: "1px solid #1e1e2e",
-      }}>
-        <span style={{ fontSize: 18, fontWeight: 700, color: "#f1f1f1", letterSpacing: "-0.3px" }}>
-          Messages
-        </span>
-        <button onClick={onNewConversation} style={{
-          background: "#3b82f6", border: "none", borderRadius: 8,
-          width: 32, height: 32, display: "flex", alignItems: "center",
-          justifyContent: "center", cursor: "pointer", color: "#fff",
-          fontSize: 20, lineHeight: 1,
-        }}>+</button>
+  const getAvatar = (conv) => {
+    if (conv.is_group) {
+      return `https://ui-avatars.com/api/?name=${encodeURIComponent(conv.name || "G")}&background=7c3aed&color=fff&bold=true`;
+    }
+    const other = getOtherParticipant(conv);
+    if (other?.avatar_url?.startsWith("http")) return other.avatar_url;
+    const name = other?.full_name || "U";
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=7c3aed&color=fff&bold=true`;
+  };
+
+  const getTimeAgo = (dateStr) => {
+    if (!dateStr) return "";
+    const seconds = Math.floor((new Date() - new Date(dateStr)) / 1000);
+    if (seconds < 60) return "now";
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
+    return `${Math.floor(seconds / 86400)}d`;
+  };
+
+  const getLastMessagePreview = (conv) => {
+    if (!conv.last_message) return "No messages yet";
+    if (conv.last_message.message_type !== "text") return `📎 ${conv.last_message.message_type}`;
+    return conv.last_message.content || "Deleted message";
+  };
+
+  // TRUTH GATE: loading = True → spinner
+  if (loading) {
+    return (
+      <div className="conv-list-loading">
+        <Spinner animation="border" size="sm" variant="primary" />
       </div>
+    );
+  }
 
-      {/* List */}
-      <div style={{ flex: 1, overflowY: "auto" }}>
-        {loadingConversations && (
-          <div style={{ padding: 24, textAlign: "center", color: "#555" }}>Loading…</div>
-        )}
-        {!loadingConversations && conversations.length === 0 && (
-          <div style={{ padding: 24, textAlign: "center", color: "#555", fontSize: 14 }}>
-            No conversations yet
-          </div>
-        )}
-        {conversations.map(conv => {
-          const other    = getOtherParticipant(conv);
-          const name     = getDisplayName(conv);
-          const isActive = activeConversation?.id === conv.id;
-          const isOnline = other && onlineUsers.has(other.id);
-          const last     = conv.last_message;
+  // TRUTH GATE: no conversations → empty state
+  if (conversations.length === 0) {
+    return (
+      <div className="conv-list-empty">
+        <p className="text-muted small">No conversations yet</p>
+      </div>
+    );
+  }
 
-          return (
-            <div
-              key={conv.id}
-              onClick={() => onSelect(conv)}
-              style={{
-                display: "flex", alignItems: "center", gap: 12,
-                padding: "12px 16px", cursor: "pointer",
-                background: isActive ? "#1a1a2e" : "transparent",
-                borderLeft: isActive ? "3px solid #3b82f6" : "3px solid transparent",
-                transition: "background 0.15s",
-              }}
-              onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = "#141420"; }}
-              onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = "transparent"; }}
-            >
-              {/* Avatar with online dot */}
-              <div style={{ position: "relative" }}>
-                <Avatar name={name} size={42} />
-                {isOnline && (
-                  <div style={{
-                    position: "absolute", bottom: 1, right: 1,
-                    width: 10, height: 10, borderRadius: "50%",
-                    background: "#10b981", border: "2px solid #0f0f13",
-                  }} />
+  return (
+    <div className="conv-list">
+      {conversations.map(conv => {
+        const other = getOtherParticipant(conv);
+        const isOnline = other && onlineUsers.has(other.id);
+        const isActive = conv.id === activeId;   // True if selected
+        const hasUnread = conv.unread_count > 0; // True if unread
+
+        return (
+          <div
+            key={conv.id}
+            className={`conv-item ${isActive ? "active" : ""}`}
+            onClick={() => onSelect(conv)}
+          >
+            <div className="conv-avatar-wrap">
+              <img
+                src={getAvatar(conv)}
+                alt={getDisplayName(conv)}
+                className="conv-avatar"
+                onError={(e) => {
+                  e.target.src = `https://ui-avatars.com/api/?name=U&background=7c3aed&color=fff`;
+                }}
+              />
+              {/* TRUTH GATE: isOnline = True → green dot */}
+              {isOnline && <span className="online-dot" />}
+            </div>
+
+            <div className="conv-info">
+              <div className="conv-name-row">
+                <span className={`conv-name ${hasUnread ? "fw-bold" : ""}`}>
+                  {getDisplayName(conv)}
+                </span>
+                <span className="conv-time">{getTimeAgo(conv.updated_at)}</span>
+              </div>
+              <div className="conv-preview-row">
+                <span className={`conv-preview ${hasUnread ? "fw-semibold text-dark" : "text-muted"}`}>
+                  {getLastMessagePreview(conv)}
+                </span>
+                {/* TRUTH GATE: hasUnread = True → badge */}
+                {hasUnread && (
+                  <span className="unread-badge">{conv.unread_count}</span>
                 )}
               </div>
-
-              {/* Content */}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{
-                    fontSize: 14, fontWeight: 600, color: "#f1f1f1",
-                    whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-                  }}>{name}</span>
-                  <span style={{ fontSize: 11, color: "#555", flexShrink: 0, marginLeft: 8 }}>
-                    {timeAgo(last?.created_at || conv.updated_at)}
-                  </span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 2 }}>
-                  <span style={{
-                    fontSize: 13, color: "#666",
-                    whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-                    maxWidth: 160,
-                  }}>
-                    {last
-                      ? (last.message_type !== "text" ? "📎 Media" : last.content || "Deleted message")
-                      : "Start a conversation"}
-                  </span>
-                  {conv.unread_count > 0 && (
-                    <div style={{
-                      background: "#3b82f6", color: "#fff", borderRadius: 10,
-                      fontSize: 11, fontWeight: 700, minWidth: 18, height: 18,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      padding: "0 5px", flexShrink: 0,
-                    }}>{conv.unread_count}</div>
-                  )}
-                </div>
-              </div>
             </div>
-          );
-        })}
-      </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
+
+export default ConversationList;

@@ -28,6 +28,7 @@ export default function ChatWindow({
   wsConnected,
   loadingMessages,
   hasMoreMessages,
+  currentUser,
   onSendMessage,
   onTyping,
   onDeleteMessage,
@@ -35,14 +36,11 @@ export default function ChatWindow({
   onToggleTranslation,
   onReadReceipts,
 }) {
-  const currentUser   = authManager.getUser();
-  const bottomRef     = useRef(null);
-  const messagesRef   = useRef(null);
-  const [replyTo, setReplyTo]             = useState(null);
-  const [showTranslation, setShowTranslation] = useState(true);
-  const prevMessagesLen                   = useRef(0);
+  const bottomRef   = useRef(null);
+  const messagesRef = useRef(null);
+  const [replyTo, setReplyTo] = useState(null);
+  const prevMessagesLen = useRef(0);
 
-  // Get other participant name
   const getTitle = () => {
     if (!conversation) return "";
     if (conversation.is_group) return conversation.name || "Group";
@@ -64,7 +62,7 @@ export default function ChatWindow({
     return other ? onlineUsers.has(other.id) : false;
   };
 
-  // Auto-scroll to bottom on new messages
+  // Auto-scroll on new messages
   useEffect(() => {
     if (messages.length > prevMessagesLen.current) {
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -72,7 +70,7 @@ export default function ChatWindow({
     prevMessagesLen.current = messages.length;
   }, [messages.length]);
 
-  // Mark unread messages as read when window is visible
+  // Mark messages as read
   useEffect(() => {
     if (!messages.length || !onReadReceipts) return;
     const unreadIds = messages
@@ -82,12 +80,10 @@ export default function ChatWindow({
     if (unreadIds.length > 0) onReadReceipts(unreadIds);
   }, [messages, currentUser?.id]);
 
-  // Infinite scroll — load more when scrolled to top
+  // Infinite scroll
   const handleScroll = useCallback(() => {
     if (!messagesRef.current || !hasMoreMessages) return;
-    if (messagesRef.current.scrollTop < 60) {
-      onLoadMore?.();
-    }
+    if (messagesRef.current.scrollTop < 60) onLoadMore?.();
   }, [hasMoreMessages, onLoadMore]);
 
   const handleSend = useCallback(async (payload) => {
@@ -98,36 +94,32 @@ export default function ChatWindow({
     await onDeleteMessage(conversation.id, messageId);
   }, [conversation?.id, onDeleteMessage]);
 
-  // ─── Empty state ─────────────────────────────────────────────────
+  // Helper: get display content (translated or original)
+  const getDisplayContent = (message) => {
+    if (
+      conversation?.translation_enabled &&
+      message.translation?.translated_content &&
+      message.translation?.target_language === conversation?.translation_target_language
+    ) {
+      return message.translation.translated_content;
+    }
+    return message.content;
+  };
 
   if (!conversation) {
     return (
-      <div style={{
-        flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
-        background: "#0a0a10", fontFamily: "'DM Sans', sans-serif",
-      }}>
-        <div style={{ textAlign: "center", color: "#333" }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>💬</div>
-          <div style={{ fontSize: 16, fontWeight: 600, color: "#444" }}>Select a conversation</div>
-          <div style={{ fontSize: 13, marginTop: 4 }}>Choose from the list to start messaging</div>
-        </div>
+      <div className="messages-empty">
+        <i className="bi bi-chat-dots display-1 text-muted" />
+        <h5 className="mt-3 text-muted">Select a conversation</h5>
       </div>
     );
   }
 
   return (
-    <div style={{
-      flex: 1, display: "flex", flexDirection: "column",
-      background: "#0a0a10", height: "100%",
-      fontFamily: "'DM Sans', sans-serif",
-    }}>
+    <div className="chat-window">
 
-      {/* ── Header ── */}
-      <div style={{
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "12px 16px", borderBottom: "1px solid #1e1e2e",
-        background: "#0f0f13",
-      }}>
+      {/* Header */}
+      <div className="chat-header">
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ position: "relative" }}>
             <Avatar name={getTitle()} size={36} />
@@ -140,60 +132,41 @@ export default function ChatWindow({
             )}
           </div>
           <div>
-            <div style={{ fontWeight: 700, fontSize: 15, color: "#f1f1f1" }}>
-              {getTitle()}
-            </div>
-            <div style={{
-              fontSize: 12,
-              color: isOnline() ? "#10b981" : "#555",
-            }}>
+            <div className="chat-header-name">{getTitle()}</div>
+            <div className={`chat-header-status ${isOnline() ? "online" : ""}`}>
               {getSubtitle()}
             </div>
           </div>
         </div>
 
-        {/* Translation toggle */}
         <TranslationToggle
           conversation={conversation}
           onToggle={onToggleTranslation}
         />
       </div>
 
-      {/* ── Messages ── */}
+      {/* Messages */}
       <div
         ref={messagesRef}
+        className="messages-list"
         onScroll={handleScroll}
-        style={{
-          flex: 1, overflowY: "auto", padding: "12px 0",
-          display: "flex", flexDirection: "column", gap: 2,
-        }}
       >
-        {/* Load more */}
         {hasMoreMessages && (
           <div style={{ textAlign: "center", padding: "8px 0" }}>
-            <button onClick={onLoadMore} style={{
-              background: "none", border: "1px solid #2a2a3e",
-              borderRadius: 8, padding: "6px 16px",
-              color: "#555", fontSize: 12, cursor: "pointer",
-            }}>
+            <button className="btn btn-sm btn-outline-secondary" onClick={onLoadMore}>
               Load older messages
             </button>
           </div>
         )}
 
         {loadingMessages && messages.length === 0 && (
-          <div style={{ textAlign: "center", padding: 24, color: "#444", fontSize: 13 }}>
-            Loading messages…
-          </div>
+          <div className="messages-loading">Loading messages…</div>
         )}
 
         {!loadingMessages && messages.length === 0 && (
-          <div style={{ textAlign: "center", padding: 24, color: "#333", fontSize: 13 }}>
-            No messages yet. Say hello! 👋
-          </div>
+          <div className="messages-empty-chat">No messages yet. Say hello! 👋</div>
         )}
 
-        {/* Group messages by date */}
         {messages.map((message, idx) => {
           const prevMsg  = messages[idx - 1];
           const msgDate  = new Date(message.created_at).toDateString();
@@ -203,18 +176,18 @@ export default function ChatWindow({
           return (
             <React.Fragment key={message.id}>
               {showDate && (
-                <div style={{
-                  textAlign: "center", padding: "12px 0 4px",
-                  fontSize: 11, color: "#444",
-                }}>
+                <div className="message-date-divider">
                   {msgDate === new Date().toDateString() ? "Today" : msgDate}
                 </div>
               )}
               <MessageBubble
                 message={message}
-                onDelete={handleDelete}
-                onReply={setReplyTo}
-                showTranslation={showTranslation && (conversation.translation_enabled ?? true)}
+                isOwn={message.sender?.id === currentUser?.id}
+                currentUser={currentUser}
+                displayContent={getDisplayContent(message)}
+                showAvatar={!prevMsg || prevMsg.sender?.id !== message.sender?.id}
+                onDelete={() => handleDelete(message.id)}
+                onReply={() => setReplyTo(message)}
               />
             </React.Fragment>
           );
@@ -223,10 +196,21 @@ export default function ChatWindow({
         <div ref={bottomRef} />
       </div>
 
-      {/* ── Typing indicator ── */}
       <TypingIndicator typingUsers={typingUsers} />
 
-      {/* ── Input ── */}
+      {/* Reply preview */}
+      {replyTo && (
+        <div className="reply-preview">
+          <div className="reply-preview-content">
+            <span className="reply-preview-sender">Replying to {replyTo.sender?.full_name}</span>
+            <span className="reply-preview-text">{replyTo.content?.slice(0, 50)}{replyTo.content?.length > 50 ? "…" : ""}</span>
+          </div>
+          <button className="reply-preview-close" onClick={() => setReplyTo(null)}>
+            <i className="bi bi-x" />
+          </button>
+        </div>
+      )}
+
       <MessageInput
         onSend={handleSend}
         onTyping={onTyping}

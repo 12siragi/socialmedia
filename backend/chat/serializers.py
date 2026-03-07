@@ -74,31 +74,30 @@ class MessageSerializer(serializers.ModelSerializer):
 
     def get_translation(self, obj):
         """
-        Returns the Translation record for the requesting user's language.
-
-        GATES:
-          - no request in context       → return None
-          - user has no preferred_language or it's 'en' → return None
-          - no Translation record exists yet → return None
-            (WebSocket will push chat.translation.ready when ready)
-          - translation failed          → return None (frontend uses original)
-          - translation complete        → return serialized Translation
+        Returns the Translation record for the requesting user's target language.
+        Uses TranslationPreference.target_language (user's toggle choice),
+        NOT preferred_language.
         """
         request = self.context.get('request')
         if not request:
             return None
 
-        lang = getattr(request.user, 'preferred_language', None)
-        if not lang or lang.strip().lower() == 'en':
-            return None
-
-        # Import here to avoid circular imports between chat ↔ ai
-        from ai.models import Translation
+        from ai.models import Translation, TranslationPreference
         from ai.serializers import TranslationSerializer
+
+        # Get user's chosen target language for this conversation
+        pref = TranslationPreference.objects.filter(
+            user=request.user,
+            conversation_id=obj.conversation_id,
+            is_enabled=True,
+        ).first()
+
+        if not pref or not pref.target_language:
+            return None
 
         translation = Translation.objects.filter(
             message_id=obj.id,
-            target_language=lang.strip().lower(),
+            target_language=pref.target_language,
         ).first()
 
         if not translation or not translation.is_complete:
@@ -123,10 +122,11 @@ class SendMessageSerializer(serializers.ModelSerializer):
 
 
 class ConversationSerializer(serializers.ModelSerializer):
-    participants        = ParticipantUserSerializer(many=True, read_only=True)
-    last_message        = serializers.SerializerMethodField()
-    unread_count        = serializers.SerializerMethodField()
-    translation_enabled = serializers.SerializerMethodField()
+    participants                 = ParticipantUserSerializer(many=True, read_only=True)
+    last_message                 = serializers.SerializerMethodField()
+    unread_count                 = serializers.SerializerMethodField()
+    translation_enabled          = serializers.SerializerMethodField()
+    translation_target_language  = serializers.SerializerMethodField()  # FIX: added
 
     class Meta:
         model = Conversation
@@ -134,6 +134,7 @@ class ConversationSerializer(serializers.ModelSerializer):
             'id', 'name', 'is_group', 'participants',
             'last_message', 'unread_count',
             'translation_enabled',
+            'translation_target_language',   # FIX: added
             'created_at', 'updated_at',
         ]
 
@@ -168,20 +169,24 @@ class ConversationSerializer(serializers.ModelSerializer):
             created_at__gt=membership.last_read_at,
         ).exclude(sender=user).count()
 
-    def get_translation_enabled(self, obj):
-        """
-        Returns whether translation is ON for the requesting user
-        in this conversation. Defaults to True (translation ON).
-        """
+    def _get_translation_pref(self, obj):
+        """Helper - fetch pref once, used by both translation fields."""
         request = self.context.get('request')
         if not request:
-            return True
+            return None
         from ai.models import TranslationPreference
-        pref = TranslationPreference.objects.filter(
+        return TranslationPreference.objects.filter(
             user=request.user,
             conversation=obj,
         ).first()
-        return pref.is_enabled if pref else True  # default ON
+
+    def get_translation_enabled(self, obj):
+        pref = self._get_translation_pref(obj)
+        return pref.is_enabled if pref else False  # default OFF until user picks language
+
+    def get_translation_target_language(self, obj):
+        pref = self._get_translation_pref(obj)
+        return pref.target_language if pref else None
 
 
 class CreateConversationSerializer(serializers.Serializer):

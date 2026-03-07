@@ -2,11 +2,25 @@
 from django.db import models
 from django.conf import settings
 
+SUPPORTED_LANGUAGES = [
+    ('en', 'English'),
+    ('ar', 'Arabic'),
+    ('fr', 'French'),
+    ('es', 'Spanish'),
+    ('de', 'German'),
+    ('tr', 'Turkish'),
+    ('ur', 'Urdu'),
+    ('zh', 'Chinese'),
+    ('hi', 'Hindi'),
+    ('ru', 'Russian'),
+]
+
 
 class TranslationPreference(models.Model):
     """
     Stores per-user, per-conversation translation toggle.
-    If is_enabled=False → no translation for this user in this conversation.
+    is_enabled=True  + target_language='ar' -> translate all messages to Arabic
+    is_enabled=False -> no translation for this user in this conversation
     """
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -18,7 +32,13 @@ class TranslationPreference(models.Model):
         on_delete=models.CASCADE,
         related_name='translation_preferences'
     )
-    is_enabled = models.BooleanField(default=True)
+    is_enabled = models.BooleanField(default=False)
+    target_language = models.CharField(
+        max_length=10,
+        null=True,
+        blank=True,
+        help_text="Language the user wants messages translated TO e.g. 'ar', 'fr'"
+    )
 
     class Meta:
         unique_together = ('user', 'conversation')
@@ -31,25 +51,16 @@ class TranslationPreference(models.Model):
             f"TranslationPreference("
             f"user={self.user.email}, "
             f"conv={self.conversation_id}, "
-            f"enabled={self.is_enabled})"
+            f"enabled={self.is_enabled}, "
+            f"target={self.target_language})"
         )
 
 
 class Translation(models.Model):
     """
     Stores translated versions of chat messages.
-
     One message can have many translations (one per language).
     Original message content is always preserved in chat.Message.
-
-    TRUTH LAYER:
-      Translation exists?       True/False
-      Translation is complete?  True if translated_content is not empty
-      Translation failed?       True if is_failed = True
-
-    INVARIANT:
-      One Translation per (message, target_language) → unique_together
-      Original message is NEVER modified
     """
     message_id = models.IntegerField(
         db_index=True,
@@ -82,7 +93,7 @@ class Translation(models.Model):
     )
     is_failed = models.BooleanField(
         default=False,
-        help_text="True if translation failed — frontend falls back to original"
+        help_text="True if translation failed - frontend falls back to original"
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -95,16 +106,14 @@ class Translation(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"Translation(msg={self.message_id}, {self.source_language}→{self.target_language})"
+        return f"Translation(msg={self.message_id}, {self.source_language}->{self.target_language})"
 
     @property
     def is_complete(self):
-        """True if translation exists and succeeded."""
         return bool(self.translated_content) and not self.is_failed
 
     @property
     def display_content(self):
-        """Returns translated content if complete, otherwise falls back to original. Never returns None."""
         if self.is_complete:
             return self.translated_content
         return self.original_content

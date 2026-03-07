@@ -69,9 +69,21 @@ function useMessaging() {
         : null;
 
       if (cursor) {
-        setMessages(prev => [...results, ...prev]); // prepend older messages
+        // Prepend older messages, dedup by id
+        setMessages(prev => {
+          const existingIds = new Set(prev.map(m => m.id));
+          const newOnes = results.filter(m => !existingIds.has(m.id));
+          return [...newOnes, ...prev];
+        });
       } else {
-        setMessages(results); // fresh load
+        // Fresh load - deduplicate by id just in case
+        const seen = new Set();
+        const deduped = results.filter(m => {
+          if (seen.has(m.id)) return false;
+          seen.add(m.id);
+          return true;
+        });
+        setMessages(deduped);
       }
       setNextCursor(nextCursorVal);
       setHasMoreMessages(!!nextCursorVal);
@@ -123,17 +135,27 @@ function useMessaging() {
     ));
   }, []);
 
-  const toggleTranslation = useCallback(async (conversationId, isEnabled) => {
+  const toggleTranslation = useCallback(async (conversationId, isEnabled, targetLanguage = null) => {
+    const payload = { is_enabled: isEnabled };
+    if (targetLanguage) payload.target_language = targetLanguage;
+    if (!isEnabled)     payload.target_language = null;
+
     const res = await axiosService.post(
       `/api/ai/translation-preference/${conversationId}/`,
-      { is_enabled: isEnabled }
+      payload,
     );
-    // Update conversation in list with new toggle state
+    // Update both conversations list AND activeConversation
+    const updatedFields = {
+      translation_enabled: res.data.is_enabled,
+      translation_target_language: res.data.target_language,
+    };
     setConversations(prev => prev.map(c =>
-      c.id === conversationId
-        ? { ...c, translation_enabled: res.data.is_enabled }
-        : c
+      c.id === conversationId ? { ...c, ...updatedFields } : c
     ));
+    // FIX: also update activeConversation so ChatWindow re-renders
+    setActiveConversation(prev =>
+      prev?.id === conversationId ? { ...prev, ...updatedFields } : prev
+    );
     return res.data;
   }, []);
 
@@ -258,19 +280,22 @@ function useMessaging() {
 
       // FIX 1: handle translation delivery from backend signal
       case 'chat.translation.ready':
-        setMessages(prev => prev.map(m =>
-          m.id === data.message_id
-            ? {
-                ...m,
-                translation: {
-                  translated_content: data.translated_content,
-                  target_language:    data.target_language,
-                  is_complete:        true,
-                  is_failed:          false,
-                },
-              }
-            : m
-        ));
+        setMessages(prev => {
+          const msgId = Number(data.message_id);
+          return prev.map(m =>
+            Number(m.id) === msgId
+              ? {
+                  ...m,
+                  translation: {
+                    translated_content: data.translated_content,
+                    target_language:    data.target_language,
+                    is_complete:        true,
+                    is_failed:          false,
+                  },
+                }
+              : m
+          );
+        });
         break;
 
       default:
