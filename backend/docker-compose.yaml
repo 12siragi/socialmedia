@@ -135,8 +135,9 @@ services:
   coqui-tts:
     image: ghcr.io/coqui-ai/tts:latest
     container_name: socialmedia-coqui
+    entrypoint: python
     command: >
-      python TTS/server/server.py
+      TTS/server/server.py
       --model_name tts_models/en/ljspeech/tacotron2-DDC
       --port 5002
       --use_cuda false
@@ -152,7 +153,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 120s   # needs time to download model on first run
+      start_period: 120s
 
   # 9. NGINX
   nginx:
