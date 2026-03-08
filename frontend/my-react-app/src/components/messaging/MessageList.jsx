@@ -7,16 +7,10 @@ export default function MessageList({
   activeConversation,
   currentUser,
   onReply,
-  onDelete
+  onDelete,
+  onRequestAudio,
 }) {
-  // Determine if translation should be applied and get the correct content
   const getDisplayContent = (message) => {
-    console.log("CHECK", {
-      enabled: activeConversation?.translation_enabled,
-      messageTranslation: message.translation,
-      target: activeConversation?.translation_target_language
-    });
-
     if (
       activeConversation?.translation_enabled &&
       message.translation &&
@@ -24,11 +18,9 @@ export default function MessageList({
     ) {
       return message.translation.translated_content;
     }
-
     return message.content;
   };
 
-  // Logic to decide when to show avatar (same as before)
   const shouldShowAvatar = (msg, index) => {
     if (msg.is_deleted) return false;
     const prevMsg = messages[index - 1];
@@ -41,12 +33,13 @@ export default function MessageList({
         <MessageBubble
           key={msg.id}
           message={msg}
-          displayContent={getDisplayContent(msg)} // ← new prop
+          displayContent={getDisplayContent(msg)}
           isOwn={msg.sender.id === currentUser.id}
           showAvatar={shouldShowAvatar(msg, index)}
           currentUser={currentUser}
           onReply={() => onReply(msg)}
           onDelete={() => onDelete(msg.id)}
+          onRequestAudio={() => onRequestAudio?.(msg.id)}
         />
       ))}
     </div>

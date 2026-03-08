@@ -224,6 +224,7 @@ function useMessaging() {
   // --- WS Event Handler --------------------------------------------
 
   const handleWSEvent = useCallback((data) => {
+    console.log('[WS EVENT]', data.type, data);
     switch (data.type) {
 
       case 'chat.message':
@@ -320,6 +321,24 @@ function useMessaging() {
         });
         break;
 
+      case 'chat.enrichment.ready':
+        setMessages(prev => {
+          const msgId = Number(data.message_id);
+          return prev.map(m =>
+            Number(m.id) === msgId
+              ? {
+                  ...m,
+                  enrichment: {
+                    joke:            data.joke,
+                    audio_url:       data.audio_url,
+                    audio_generated: data.audio_generated,
+                  },
+                }
+              : m
+          );
+        });
+        break;
+
       default:
         break;
     }
@@ -404,6 +423,34 @@ function useMessaging() {
     }
   }, [sendWSMessage]);
 
+  const requestAudio = useCallback(async (messageId) => {
+    // Optimistically mark as loading in UI
+    setMessages(prev => prev.map(m =>
+      m.id === messageId ? { ...m, audio: { ...m.audio, loading: true } } : m
+    ));
+    try {
+      const res = await axiosService.post(`/api/ai/audio/${messageId}/`);
+      setMessages(prev => prev.map(m =>
+        m.id === messageId
+          ? {
+              ...m,
+              audio: {
+                audio_url:       res.data.audio_url,
+                audio_generated: true,
+                loading:         false,
+              },
+            }
+          : m
+      ));
+    } catch (err) {
+      setMessages(prev => prev.map(m =>
+        m.id === messageId
+          ? { ...m, audio: { audio_failed: true, loading: false } }
+          : m
+      ));
+    }
+  }, []);
+
   const sendReadReceipts = useCallback((messageIds) => {
     if (messageIds.length === 0) return;
     sendWSMessage({ type: 'chat.read', message_ids: messageIds });
@@ -442,6 +489,7 @@ function useMessaging() {
     sendReadReceipts,
     deleteMessage,
     toggleTranslation,
+    requestAudio,
     disconnectWS,
   };
 }

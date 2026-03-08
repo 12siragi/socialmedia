@@ -117,3 +117,46 @@ class Translation(models.Model):
         if self.is_complete:
             return self.translated_content
         return self.original_content
+
+
+class MessageAudio(models.Model):
+    """
+    Stores on-demand TTS audio for a message.
+
+    Truth checks:
+      audio_generated=True  → audio_url is valid, receiver can play
+      audio_failed=True     → Coqui failed, show error in UI
+      spoke_translation=True → audio was generated from translated_content
+
+    Created only when receiver clicks play — not auto-generated.
+    One record per message (shared if multiple receivers request same message).
+    """
+    message = models.OneToOneField(
+        'chat.Message',
+        on_delete=models.CASCADE,
+        related_name='audio',
+    )
+    audio_url          = models.URLField(blank=True, null=True)
+    audio_generated    = models.BooleanField(default=False)
+    audio_failed       = models.BooleanField(default=False)
+    spoke_translation  = models.BooleanField(
+        default=False,
+        help_text="True if audio was generated from translated content"
+    )
+    created_at         = models.DateTimeField(auto_now_add=True)
+    updated_at         = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['message'], name='idx_audio_message'),
+        ]
+
+    def __str__(self):
+        return (
+            f"MessageAudio(msg={self.message_id}, "
+            f"generated={self.audio_generated})"
+        )
+
+    @property
+    def can_play(self):
+        return self.audio_generated and bool(self.audio_url)

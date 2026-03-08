@@ -1,7 +1,7 @@
 // components/messaging/ChatWindow.jsx
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { authManager } from "../helpers/authManager";
-import MessageBubble from "./MessageBubble";
+import MessageList from "./MessageList";
 import MessageInput from "./MessageInput";
 import TypingIndicator from "./TypingIndicator";
 import TranslationToggle from "./TranslationToggle";
@@ -34,16 +34,16 @@ export default function ChatWindow({
   onDeleteMessage,
   onLoadMore,
   onToggleTranslation,
+  onRequestAudio,
   onReadReceipts,
   onBackToList,
 }) {
-  const bottomRef      = useRef(null);
-  const messagesRef    = useRef(null);
+  const bottomRef       = useRef(null);
+  const messagesRef     = useRef(null);
   const [replyTo, setReplyTo] = useState(null);
-  const prevMessagesLen  = useRef(0);
-  const prevFirstMsgId   = useRef(null); // track if older messages were prepended
-  const scrollDebounce   = useRef(null);
-  
+  const prevMessagesLen = useRef(0);
+  const prevFirstMsgId  = useRef(null);
+  const scrollDebounce  = useRef(null);
 
   const getTitle = () => {
     if (!conversation) return "";
@@ -66,8 +66,7 @@ export default function ChatWindow({
     return other ? onlineUsers.has(other.id) : false;
   };
 
-  // Auto-scroll only when a NEW message is added at the bottom
-  // NOT when older messages are prepended (load more)
+  // Auto-scroll only on new messages, not on prepend (load more)
   useEffect(() => {
     const currentLen     = messages.length;
     const currentFirstId = messages[0]?.id;
@@ -92,7 +91,7 @@ export default function ChatWindow({
     if (unreadIds.length > 0) onReadReceipts(unreadIds);
   }, [messages, currentUser?.id]);
 
-  // Infinite scroll with debounce to avoid firing loadMore too frequently
+  // Infinite scroll with debounce
   const handleScroll = useCallback(() => {
     if (!messagesRef.current || !hasMoreMessages) return;
     if (messagesRef.current.scrollTop < 60) {
@@ -104,25 +103,9 @@ export default function ChatWindow({
     }
   }, [hasMoreMessages, onLoadMore]);
 
-  const handleSend = useCallback(async (payload) => {
-    await onSendMessage(conversation.id, payload);
-  }, [conversation?.id, onSendMessage]);
-
   const handleDelete = useCallback(async (messageId) => {
     await onDeleteMessage(conversation.id, messageId);
   }, [conversation?.id, onDeleteMessage]);
-
-  // Helper: get display content (translated or original)
-  const getDisplayContent = (message) => {
-    if (
-      conversation?.translation_enabled &&
-      message.translation?.translated_content &&
-      message.translation?.target_language === conversation?.translation_target_language
-    ) {
-      return message.translation.translated_content;
-    }
-    return message.content;
-  };
 
   if (!conversation) {
     return (
@@ -194,31 +177,37 @@ export default function ChatWindow({
           <div className="messages-empty-chat">No messages yet. Say hello! 👋</div>
         )}
 
-        {messages.map((message, idx) => {
-          const prevMsg  = messages[idx - 1];
-          const msgDate  = new Date(message.created_at).toDateString();
-          const prevDate = prevMsg ? new Date(prevMsg.created_at).toDateString() : null;
-          const showDate = msgDate !== prevDate;
+        {/* Date dividers + messages */}
+        {(() => {
+          const elements = [];
+          let lastDate = null;
 
-          return (
-            <React.Fragment key={message.id}>
-              {showDate && (
-                <div className="message-date-divider">
+          messages.forEach((message, idx) => {
+            const msgDate = new Date(message.created_at).toDateString();
+            if (msgDate !== lastDate) {
+              elements.push(
+                <div key={`date-${message.id}`} className="message-date-divider">
                   {msgDate === new Date().toDateString() ? "Today" : msgDate}
                 </div>
-              )}
-              <MessageBubble
-                message={message}
-                isOwn={message.sender?.id === currentUser?.id}
-                currentUser={currentUser}
-                displayContent={getDisplayContent(message)}
-                showAvatar={!prevMsg || prevMsg.sender?.id !== message.sender?.id}
-                onDelete={() => handleDelete(message.id)}
-                onReply={() => setReplyTo(message)}
-              />
-            </React.Fragment>
+              );
+              lastDate = msgDate;
+            }
+          });
+
+          elements.push(
+            <MessageList
+              key="message-list"
+              messages={messages}
+              activeConversation={conversation}
+              currentUser={currentUser}
+              onReply={(msg) => setReplyTo(msg)}
+              onDelete={handleDelete}
+              onRequestAudio={onRequestAudio}
+            />
           );
-        })}
+
+          return elements;
+        })()}
 
         <div ref={bottomRef} />
       </div>
@@ -230,7 +219,9 @@ export default function ChatWindow({
         <div className="reply-preview">
           <div className="reply-preview-content">
             <span className="reply-preview-sender">Replying to {replyTo.sender?.full_name}</span>
-            <span className="reply-preview-text">{replyTo.content?.slice(0, 50)}{replyTo.content?.length > 50 ? "…" : ""}</span>
+            <span className="reply-preview-text">
+              {replyTo.content?.slice(0, 50)}{replyTo.content?.length > 50 ? "…" : ""}
+            </span>
           </div>
           <button className="reply-preview-close" onClick={() => setReplyTo(null)}>
             <i className="bi bi-x" />

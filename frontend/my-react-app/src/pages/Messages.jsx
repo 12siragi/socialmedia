@@ -33,6 +33,7 @@ function Messages() {
     loadMoreMessages,
     deleteMessage,
     toggleTranslation,
+    requestAudio,
     disconnectWS,
   } = useMessaging();
 
@@ -97,6 +98,7 @@ function Messages() {
               onLoadMore={() => loadMoreMessages(activeConversation.id)}
               onDeleteMessage={deleteMessage}
               onToggleTranslation={toggleTranslation}
+              onRequestAudio={requestAudio}
               onBackToList={() => setShowSidebar(true)}
             />
           ) : (

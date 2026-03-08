@@ -80,3 +80,134 @@ class TranslationPreferenceView(APIView):
             f"conv={conversation_id} errors={serializer.errors}"
         )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+
+class MessageAudioView(APIView):
+    """
+    POST /api/ai/audio/<message_id>/
+
+    Truth checks (in order):
+      1. Message exists                    → 404 if not
+      2. Requester is a participant        → 403 if not
+      3. Requester is NOT the sender       → 403 (audio for receivers only)
+      4. Audio already generated           → return cached audio_url immediately
+      5. Coqui available                   → 503 if not
+      6. Get text to speak:
+           translation enabled + exists    → use translated_content
+           else                            → use original message content
+      7. Generate audio → save → return url
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, message_id):
+        from chat.models import Message, ConversationParticipant
+        from ai.models import MessageAudio, Translation, TranslationPreference
+        from ai.services.coqui_tts import generate_audio, is_available
+
+        # 1. Message exists
+        try:
+            message = Message.objects.select_related('sender').get(
+                id=message_id,
+                is_deleted=False,
+            )
+        except Message.DoesNotExist:
+            return Response({"error": "Message not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # 2. Requester is a participant
+        is_participant = ConversationParticipant.objects.filter(
+            conversation_id=message.conversation_id,
+            user=request.user,
+        ).exists()
+        if not is_participant:
+            return Response({"error": "Not a participant"}, status=status.HTTP_403_FORBIDDEN)
+
+        # 3. Receivers only — sender cannot request audio of own message
+        if message.sender_id == request.user.id:
+            return Response(
+                {"error": "Cannot generate audio for your own message"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # 4. Return cached audio if already generated
+        try:
+            existing = message.audio
+            if existing.can_play:
+                return Response({
+                    "audio_url":       existing.audio_url,
+                    "audio_generated": True,
+                    "cached":          True,
+                })
+        except MessageAudio.DoesNotExist:
+            pass
+
+        # 5. Coqui availability check
+        if not is_available():
+            return Response(
+                {"error": "TTS engine unavailable, try again shortly"},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        # 6. Decide what text to speak
+        #    Translation enabled + translation exists → speak translated content
+        #    Otherwise → speak original content
+        text_to_speak = message.content  # default
+
+        pref = TranslationPreference.objects.filter(
+            user=request.user,
+            conversation_id=message.conversation_id,
+            is_enabled=True,
+            target_language__isnull=False,
+        ).first()
+
+        spoke_translation = False
+        if pref:
+            translation = Translation.objects.filter(
+                message_id=message_id,
+                target_language=pref.target_language,
+                is_failed=False,
+            ).exclude(translated_content__isnull=True).first()
+
+            if translation and translation.translated_content:
+                text_to_speak     = translation.translated_content
+                spoke_translation = True
+
+        # 7. Generate audio
+        try:
+            audio_url = generate_audio(text_to_speak, message_id)
+
+            audio_record, _ = MessageAudio.objects.update_or_create(
+                message=message,
+                defaults={
+                    "audio_url":         audio_url,
+                    "audio_generated":   True,
+                    "audio_failed":      False,
+                    "spoke_translation": spoke_translation,
+                }
+            )
+
+            logger.info(
+                f"Audio generated: msg={message_id} "
+                f"user={request.user.id} "
+                f"translation={spoke_translation}"
+            )
+
+            return Response({
+                "audio_url":         audio_url,
+                "audio_generated":   True,
+                "spoke_translation": spoke_translation,
+                "cached":            False,
+            })
+
+        except Exception as e:
+            logger.error(f"Audio generation failed: msg={message_id} error={e}")
+            MessageAudio.objects.update_or_create(
+                message=message,
+                defaults={
+                    "audio_generated": False,
+                    "audio_failed":    True,
+                }
+            )
+            return Response(
+                {"error": "Audio generation failed"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )

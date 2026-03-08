@@ -1,5 +1,5 @@
 // src/components/messaging/MessageBubble.jsx
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 
 // =============================================================================
 // TRUTH LAYER 2: Render message based on truths
@@ -9,9 +9,108 @@ import React, { useState } from "react";
 // is_optimistic = True → sending (clock icon, faded)
 // send_failed = True → failed (red warning icon)
 // message_type != text → show media
+// audio = null → show "Play audio" button (receivers only)
+// audio.loading = True → generating…
+// audio.audio_generated = True → show player
+// audio.audio_failed = True → show retry
 // =============================================================================
 
-function MessageBubble({ message, isOwn, displayContent, showAvatar, currentUser, onReply, onDelete }) {
+// ── AudioPlayer ───────────────────────────────────────────────────────────────
+function AudioPlayer({ message, onRequestAudio }) {
+  const [playing, setPlaying]   = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const audioRef                = useRef(null);
+  const audio                   = message.audio;
+
+  useEffect(() => {
+    const el = audioRef.current;
+    if (!el) return;
+    const onTime   = () => setProgress(el.currentTime);
+    const onLoaded = () => setDuration(el.duration);
+    const onEnded  = () => { setPlaying(false); setProgress(0); };
+    el.addEventListener("timeupdate",     onTime);
+    el.addEventListener("loadedmetadata", onLoaded);
+    el.addEventListener("ended",          onEnded);
+    return () => {
+      el.removeEventListener("timeupdate",     onTime);
+      el.removeEventListener("loadedmetadata", onLoaded);
+      el.removeEventListener("ended",          onEnded);
+    };
+  }, [audio?.audio_url]);
+
+  const togglePlay = () => {
+    if (!audioRef.current) return;
+    if (playing) { audioRef.current.pause(); setPlaying(false); }
+    else         { audioRef.current.play();  setPlaying(true);  }
+  };
+
+  const seek = (e) => {
+    if (!audioRef.current || !duration) return;
+    const rect  = e.currentTarget.getBoundingClientRect();
+    const ratio = (e.clientX - rect.left) / rect.width;
+    audioRef.current.currentTime = ratio * duration;
+  };
+
+  const fmt = (s) => {
+    if (!s || isNaN(s)) return "0:00";
+    return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+  };
+
+  const pct = duration ? (progress / duration) * 100 : 0;
+
+  // Not yet requested
+  if (!audio) {
+    return (
+      <button className="audio-request-btn" onClick={onRequestAudio}>
+        <i className="bi bi-volume-up me-1" />
+        Play audio
+      </button>
+    );
+  }
+
+  // Generating
+  if (audio.loading) {
+    return (
+      <div className="audio-player loading">
+        <i className="bi bi-hourglass-split me-1" />
+        Generating audio…
+      </div>
+    );
+  }
+
+  // Failed
+  if (audio.audio_failed) {
+    return (
+      <div className="audio-player failed">
+        <i className="bi bi-exclamation-circle me-1" />
+        Audio unavailable
+        <button className="audio-retry-btn" onClick={onRequestAudio}>Retry</button>
+      </div>
+    );
+  }
+
+  // Ready
+  if (audio.audio_generated && audio.audio_url) {
+    return (
+      <div className="audio-player">
+        <button className="audio-play-btn" onClick={togglePlay}>
+          <i className={`bi ${playing ? "bi-pause-fill" : "bi-play-fill"}`} />
+        </button>
+        <div className="audio-progress-track" onClick={seek}>
+          <div className="audio-progress-fill" style={{ width: `${pct}%` }} />
+        </div>
+        <span className="audio-time">{fmt(progress)} / {fmt(duration)}</span>
+        <audio ref={audioRef} src={audio.audio_url} preload="metadata" />
+      </div>
+    );
+  }
+
+  return null;
+}
+
+// ── MessageBubble ─────────────────────────────────────────────────────────────
+function MessageBubble({ message, isOwn, displayContent, showAvatar, currentUser, onReply, onDelete, onRequestAudio }) {
   const [showActions, setShowActions] = useState(false);
 
   const getAvatar = () => {
@@ -67,7 +166,6 @@ function MessageBubble({ message, isOwn, displayContent, showAvatar, currentUser
             </span>
           ) : (
             <>
-              {/* Media */}
               {message.message_type === "image" && message.media_url && (
                 <img src={message.media_url} alt="Media" className="message-media-img" />
               )}
@@ -80,7 +178,6 @@ function MessageBubble({ message, isOwn, displayContent, showAvatar, currentUser
                   Download file
                 </a>
               )}
-              {/* Text content */}
               {(displayContent || message.content) && (
                 <p className="message-text">{displayContent || message.content}</p>
               )}
@@ -88,25 +185,25 @@ function MessageBubble({ message, isOwn, displayContent, showAvatar, currentUser
           )}
         </div>
 
+        {/* Audio player — receivers only, not deleted, not optimistic */}
+        {!isOwn && !message.is_deleted && !message.is_optimistic && (
+          <AudioPlayer message={message} onRequestAudio={onRequestAudio} />
+        )}
+
         {/* Meta row */}
         <div className={`message-meta ${isOwn ? "justify-content-end" : ""}`}>
           <span className="message-time">{getTimeStr(message.created_at)}</span>
 
-          {/* Sending state */}
           {isOwn && message.is_optimistic && !message.send_failed && (
             <span className="read-tick" title="Sending…">
               <i className="bi bi-clock" />
             </span>
           )}
-
-          {/* Failed state */}
           {isOwn && message.send_failed && (
             <span className="read-tick failed" title="Failed to send">
               <i className="bi bi-exclamation-circle" />
             </span>
           )}
-
-          {/* Sent / read ticks */}
           {isOwn && !message.is_optimistic && !message.send_failed && (
             <span className={`read-tick ${isReadByOthers ? "read" : ""}`}>
               <i className={`bi ${isReadByOthers ? "bi-check2-all" : "bi-check2"}`} />
@@ -115,7 +212,7 @@ function MessageBubble({ message, isOwn, displayContent, showAvatar, currentUser
         </div>
       </div>
 
-      {/* Actions — hide while message is still sending */}
+      {/* Actions — hide while sending */}
       {showActions && !message.is_deleted && !message.is_optimistic && (
         <div className={`message-actions ${isOwn ? "left" : "right"}`}>
           <button className="msg-action-btn" onClick={onReply} title="Reply">
