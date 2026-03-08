@@ -131,7 +131,30 @@ services:
       - socialmedia-network
     restart: unless-stopped
 
-  # 8. NGINX
+    # 8. Coqui TTS (self-hosted text-to-speech)
+  coqui-tts:
+    image: ghcr.io/coqui-ai/tts:latest
+    container_name: socialmedia-coqui
+    command: >
+      python TTS/server/server.py
+      --model_name tts_models/en/ljspeech/tacotron2-DDC
+      --port 5002
+      --use_cuda false
+    ports:
+      - "5002:5002"
+    volumes:
+      - coqui_models:/root/.local/share/tts
+    networks:
+      - socialmedia-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:5002/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s   # needs time to download model on first run
+
+  # 9. NGINX
   nginx:
     image: nginx:latest
     container_name: socialmedia-nginx
@@ -154,6 +177,7 @@ volumes:
   media_volume:
   redis_data:
   libretranslate_data:    # Persists downloaded language models
+  coqui_models:     # Persists downloaded TTS models
 
 networks:
   socialmedia-network:
