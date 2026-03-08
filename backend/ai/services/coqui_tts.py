@@ -11,8 +11,8 @@ COQUI_URL = os.environ.get("COQUI_TTS_URL", "http://socialmedia-coqui:5002")
 def is_available() -> bool:
     """Truth check: TTS.available == True"""
     try:
-        res = requests.get(f"{COQUI_URL}/health", timeout=5)
-        return res.status_code == 200
+        res = requests.get(f"{COQUI_URL}/", timeout=5)
+        return res.status_code in (200, 405)  # 405 = method not allowed but server is up
     except Exception:
         return False
 
@@ -27,9 +27,9 @@ def generate_audio(text: str, message_id: int) -> str:
     if not is_available():
         raise RuntimeError("Coqui TTS is not available")
 
-    response = requests.post(
+    response = requests.get(
         f"{COQUI_URL}/api/tts",
-        json={"text": text},
+        params={"text": text},
         timeout=30,
     )
     response.raise_for_status()
