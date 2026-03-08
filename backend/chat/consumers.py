@@ -88,6 +88,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def handle_message(self, data):
         content = data.get('content', '').strip()
         reply_to_id = data.get('reply_to')
+        client_id = data.get('client_id')  # echo back for optimistic UI matching
 
         if not content:
             await self.send_error("Empty message")
@@ -116,6 +117,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     'reply_to': reply_to_id,
                     'created_at': message['created_at'],
                     'read_by': [],
+                    'client_id': client_id,  # echo back for optimistic UI matching
                 }
             }
         )

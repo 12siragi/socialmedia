@@ -4,6 +4,7 @@
 .messages-page {
   display: flex;
   height: calc(100vh - 60px);
+  height: calc(100dvh - 60px);
   overflow: hidden;
   background: var(--bs-body-bg, #fff);
 }
@@ -152,8 +153,8 @@
   flex-direction: column;
   height: 100%;
   overflow: hidden;
-  
-    position: relative;
+  /* Mobile keyboard fix */
+  position: relative;
 }
 
 .chat-header {
@@ -377,7 +378,7 @@
   display: flex; align-items: center; justify-content: center;
 }
 
-.message-input-row { display: flex; align-items: flex-end; gap: 0.5rem; margin-bottom: 3rem;  }
+.message-input-row { display: flex; align-items: flex-end; gap: 0.5rem;margin-bottom: 3rem; }
 
 .attach-btn {
   background: none; border: none;
@@ -519,4 +520,47 @@
   .messages-main.visible { display: flex; }
 
   .message-row { max-width: 90%; }
+}
+
+/* ─── Mobile keyboard fix ───────────────────────────────────────── */
+@media (max-width: 768px) {
+  .messages-page {
+    height: 100dvh;
+    height: -webkit-fill-available;
+  }
+
+  .chat-window {
+    height: 100%;
+  }
+
+  /* Ensure input stays above keyboard */
+  .message-input-area {
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+  }
+
+  /* Shrink messages list when keyboard opens */
+  .messages-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Optimistic (sending) message */
+.message-row.optimistic .message-bubble {
+  opacity: 0.65;
+}
+
+/* Failed message bubble */
+.message-row.failed .message-bubble {
+  opacity: 0.65;
+  border: 1px solid #ef4444;
+}
+
+/* Failed tick icon */
+.read-tick.failed {
+  color: #ef4444;
 }

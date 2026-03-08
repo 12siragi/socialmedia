@@ -37,10 +37,13 @@ export default function ChatWindow({
   onReadReceipts,
   onBackToList,
 }) {
-  const bottomRef   = useRef(null);
-  const messagesRef = useRef(null);
+  const bottomRef      = useRef(null);
+  const messagesRef    = useRef(null);
   const [replyTo, setReplyTo] = useState(null);
-  const prevMessagesLen = useRef(0);
+  const prevMessagesLen  = useRef(0);
+  const prevFirstMsgId   = useRef(null); // track if older messages were prepended
+  const scrollDebounce   = useRef(null);
+  
 
   const getTitle = () => {
     if (!conversation) return "";
@@ -63,28 +66,42 @@ export default function ChatWindow({
     return other ? onlineUsers.has(other.id) : false;
   };
 
-  // Auto-scroll on new messages
+  // Auto-scroll only when a NEW message is added at the bottom
+  // NOT when older messages are prepended (load more)
   useEffect(() => {
-    if (messages.length > prevMessagesLen.current) {
+    const currentLen     = messages.length;
+    const currentFirstId = messages[0]?.id;
+    const olderPrepended = currentFirstId !== prevFirstMsgId.current && prevMessagesLen.current > 0;
+
+    if (currentLen > prevMessagesLen.current && !olderPrepended) {
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-    prevMessagesLen.current = messages.length;
-  }, [messages.length]);
+
+    prevMessagesLen.current = currentLen;
+    prevFirstMsgId.current  = currentFirstId;
+  }, [messages]);
 
   // Mark messages as read
   useEffect(() => {
     if (!messages.length || !onReadReceipts) return;
     const unreadIds = messages
       .filter(m => m.sender?.id !== currentUser?.id)
-      .filter(m => !m.read_by?.some(r => r.user?.id === currentUser?.id))
+      .filter(m => !m.is_deleted)
+      .filter(m => !(m.read_by ?? []).some(r => r.user?.id === currentUser?.id))
       .map(m => m.id);
     if (unreadIds.length > 0) onReadReceipts(unreadIds);
   }, [messages, currentUser?.id]);
 
-  // Infinite scroll
+  // Infinite scroll with debounce to avoid firing loadMore too frequently
   const handleScroll = useCallback(() => {
     if (!messagesRef.current || !hasMoreMessages) return;
-    if (messagesRef.current.scrollTop < 60) onLoadMore?.();
+    if (messagesRef.current.scrollTop < 60) {
+      if (scrollDebounce.current) return;
+      scrollDebounce.current = setTimeout(() => {
+        onLoadMore?.();
+        scrollDebounce.current = null;
+      }, 300);
+    }
   }, [hasMoreMessages, onLoadMore]);
 
   const handleSend = useCallback(async (payload) => {
@@ -222,7 +239,7 @@ export default function ChatWindow({
       )}
 
       <MessageInput
-        onSend={handleSend}
+        onSend={(data) => onSendMessage(conversation.id, data)}
         onTyping={onTyping}
         replyTo={replyTo}
         onCancelReply={() => setReplyTo(null)}

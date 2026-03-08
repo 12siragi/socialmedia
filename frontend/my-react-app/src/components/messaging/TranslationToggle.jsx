@@ -41,6 +41,8 @@ export default function TranslationToggle({ conversation, onToggle }) {
       } else {
         if (!selectedLang) {
           setError("Select a language first.");
+          loadingRef.current = false;
+          setLoading(false);
           return;
         }
         await onToggle(conversation.id, true, selectedLang);

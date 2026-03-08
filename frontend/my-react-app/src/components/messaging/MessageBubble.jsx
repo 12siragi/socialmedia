@@ -6,6 +6,8 @@ import React, { useState } from "react";
 // isOwn = True  → right-aligned blue bubble
 // isOwn = False → left-aligned grey bubble
 // is_deleted = True → show "Deleted message" placeholder
+// is_optimistic = True → sending (clock icon, faded)
+// send_failed = True → failed (red warning icon)
 // message_type != text → show media
 // =============================================================================
 
@@ -23,11 +25,11 @@ function MessageBubble({ message, isOwn, displayContent, showAvatar, currentUser
     return new Date(dateStr).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
 
-  const isReadByOthers = message.read_by?.some(r => r.user?.id !== currentUser?.id);
+  const isReadByOthers = (message.read_by ?? []).some(r => r.user?.id !== currentUser?.id);
 
   return (
     <div
-      className={`message-row ${isOwn ? "own" : "other"}`}
+      className={`message-row ${isOwn ? "own" : "other"}${message.is_optimistic ? " optimistic" : ""}${message.send_failed ? " failed" : ""}`}
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
     >
@@ -78,8 +80,8 @@ function MessageBubble({ message, isOwn, displayContent, showAvatar, currentUser
                   Download file
                 </a>
               )}
-              {/* Text content – use displayContent if available */}
-              {message.content && (
+              {/* Text content */}
+              {(displayContent || message.content) && (
                 <p className="message-text">{displayContent || message.content}</p>
               )}
             </>
@@ -89,7 +91,23 @@ function MessageBubble({ message, isOwn, displayContent, showAvatar, currentUser
         {/* Meta row */}
         <div className={`message-meta ${isOwn ? "justify-content-end" : ""}`}>
           <span className="message-time">{getTimeStr(message.created_at)}</span>
-          {isOwn && (
+
+          {/* Sending state */}
+          {isOwn && message.is_optimistic && !message.send_failed && (
+            <span className="read-tick" title="Sending…">
+              <i className="bi bi-clock" />
+            </span>
+          )}
+
+          {/* Failed state */}
+          {isOwn && message.send_failed && (
+            <span className="read-tick failed" title="Failed to send">
+              <i className="bi bi-exclamation-circle" />
+            </span>
+          )}
+
+          {/* Sent / read ticks */}
+          {isOwn && !message.is_optimistic && !message.send_failed && (
             <span className={`read-tick ${isReadByOthers ? "read" : ""}`}>
               <i className={`bi ${isReadByOthers ? "bi-check2-all" : "bi-check2"}`} />
             </span>
@@ -97,8 +115,8 @@ function MessageBubble({ message, isOwn, displayContent, showAvatar, currentUser
         </div>
       </div>
 
-      {/* Actions */}
-      {showActions && !message.is_deleted && (
+      {/* Actions — hide while message is still sending */}
+      {showActions && !message.is_deleted && !message.is_optimistic && (
         <div className={`message-actions ${isOwn ? "left" : "right"}`}>
           <button className="msg-action-btn" onClick={onReply} title="Reply">
             <i className="bi bi-reply" />

@@ -51,8 +51,9 @@ function useMessaging() {
     }
   }, []);
 
-  // FIX 2: cursor-based pagination - use ?cursor= not ?before=
-  const loadMessages = useCallback(async (conversationId, cursor = null) => {
+  // replace=true  → opening a new conversation (wipe and reload)
+  // replace=false → reconnect refresh (merge, don't wipe optimistic messages)
+  const loadMessages = useCallback(async (conversationId, cursor = null, replace = true) => {
     setLoadingMessages(true);
     try {
       const url = cursor
@@ -60,32 +61,37 @@ function useMessaging() {
         : `/api/chat/conversations/${conversationId}/messages/`;
       const res = await axiosService.get(url);
 
-      // DRF CursorPagination returns { next, previous, results }
-      const results   = res.data.results  ?? res.data;
-      const nextUrl   = res.data.next     ?? null;
-
-      // Extract cursor value from next URL if present
+      const results       = res.data.results ?? res.data;
+      const nextUrl       = res.data.next    ?? null;
       const nextCursorVal = nextUrl
         ? new URL(nextUrl).searchParams.get("cursor")
         : null;
 
-      if (cursor) {
-        // Prepend older messages, dedup by id
-        setMessages(prev => {
+      setMessages(prev => {
+        if (cursor) {
+          // Older messages — reverse page to ascending, then prepend
           const existingIds = new Set(prev.map(m => m.id));
-          const newOnes = results.filter(m => !existingIds.has(m.id));
+          const newOnes = [...results].reverse().filter(m => !existingIds.has(m.id));
           return [...newOnes, ...prev];
-        });
-      } else {
-        // Fresh load - deduplicate by id just in case
-        const seen = new Set();
-        const deduped = results.filter(m => {
-          if (seen.has(m.id)) return false;
-          seen.add(m.id);
-          return true;
-        });
-        setMessages(deduped);
-      }
+        }
+
+        if (replace) {
+          // Opening a new conversation — reverse to ascending, dedupe
+          const seen = new Set();
+          return [...results].reverse().filter(m => {
+            if (seen.has(m.id)) return false;
+            seen.add(m.id);
+            return true;
+          });
+        }
+
+        // Reconnect refresh — merge server results with existing state
+        const existingMap = new Map(prev.map(m => [m.id, m]));
+        [...results].reverse().forEach(m => existingMap.set(m.id, m));
+        return Array.from(existingMap.values())
+          .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+      });
+
       setNextCursor(nextCursorVal);
       setHasMoreMessages(!!nextCursorVal);
     } catch (err) {
@@ -178,8 +184,9 @@ function useMessaging() {
     ws.onopen  = () => {
       setWsConnected(true);
       // Reload messages on reconnect to catch anything missed during disconnection
+      // replace=false so optimistic messages already in state are not wiped
       if (activeConvRef.current) {
-        loadMessages(activeConvRef.current.id);
+        loadMessages(activeConvRef.current.id, null, false);
       }
     };
     ws.onclose = () => setWsConnected(false);
@@ -206,7 +213,7 @@ function useMessaging() {
     setActiveConversation(conversation);
     setMessages([]);
     setNextCursor(null);
-    loadMessages(conversation.id);
+    loadMessages(conversation.id, null, true); // replace=true: fresh load for new conversation
     connectWS(conversation.id);
 
     setConversations(prev => prev.map(c =>
@@ -221,7 +228,15 @@ function useMessaging() {
 
       case 'chat.message':
         setMessages(prev => {
-          if (prev.find(m => m.id === data.message.id)) return prev;
+          // Replace optimistic message by client_id (safe even for duplicate content)
+          const optimistic = prev.find(
+            m => m.client_id && m.client_id === data.message.client_id
+          );
+          if (optimistic) {
+            return prev.map(m => m.id === optimistic.id ? data.message : m);
+          }
+          // Prevent duplicate real messages
+          if (prev.some(m => m.id === data.message.id)) return prev;
           return [...prev, data.message];
         });
         setConversations(prev => prev.map(c =>
@@ -285,7 +300,6 @@ function useMessaging() {
         });
         break;
 
-      // FIX 1: handle translation delivery from backend signal
       case 'chat.translation.ready':
         setMessages(prev => {
           const msgId = Number(data.message_id);
@@ -294,6 +308,7 @@ function useMessaging() {
               ? {
                   ...m,
                   translation: {
+                    ...(m.translation || {}),
                     translated_content: data.translated_content,
                     target_language:    data.target_language,
                     is_complete:        true,
@@ -331,22 +346,51 @@ function useMessaging() {
   }, []);
 
   const sendMessage = useCallback(async (conversationId, { content, media, replyTo }) => {
-    if (media) {
-      const msg = await sendMessageREST(conversationId, { content, media, replyTo });
-      setMessages(prev => [...prev, msg]);
-      return msg;
-    }
+    const currentUser = authManager.getUser();
+    const tempId    = `temp-${Date.now()}`;
+    const client_id = `client-${Date.now()}`;
 
-    const sent = sendWSMessage({
-      type:     'chat.message',
+    // Show message immediately (optimistic UI)
+    const optimisticMessage = {
+      id:           tempId,
+      client_id,
       content,
-      reply_to: replyTo || null,
-    });
+      message_type: media ? (media.type?.startsWith('image/') ? 'image' : 'file') : 'text',
+      sender:       { id: currentUser?.id, full_name: currentUser?.full_name, avatar_url: currentUser?.avatar_url },
+      created_at:   new Date().toISOString(),
+      read_by:      [],
+      is_deleted:   false,
+      is_optimistic: true,
+    };
+    setMessages(prev => [...prev, optimisticMessage]);
 
-    if (!sent) {
-      const msg = await sendMessageREST(conversationId, { content, replyTo });
-      setMessages(prev => [...prev, msg]);
-      return msg;
+    try {
+      if (media) {
+        const msg = await sendMessageREST(conversationId, { content, media, replyTo });
+        setMessages(prev => prev.map(m => m.id === tempId ? msg : m));
+        return msg;
+      }
+
+      const sent = sendWSMessage({
+        type:     'chat.message',
+        content,
+        reply_to: replyTo || null,
+        client_id,
+      });
+
+      if (!sent) {
+        // WS not available — fallback to REST
+        const msg = await sendMessageREST(conversationId, { content, replyTo });
+        setMessages(prev => prev.map(m => m.id === tempId ? msg : m));
+        return msg;
+      }
+      // WS sent — optimistic message will be replaced when chat.message event arrives
+
+    } catch (err) {
+      // Mark as failed so user knows to retry
+      setMessages(prev => prev.map(m =>
+        m.id === tempId ? { ...m, send_failed: true, is_optimistic: false } : m
+      ));
     }
   }, [sendWSMessage, sendMessageREST]);
 

@@ -11,6 +11,12 @@ export default function MessageList({
 }) {
   // Determine if translation should be applied and get the correct content
   const getDisplayContent = (message) => {
+    console.log("CHECK", {
+      enabled: activeConversation?.translation_enabled,
+      messageTranslation: message.translation,
+      target: activeConversation?.translation_target_language
+    });
+
     if (
       activeConversation?.translation_enabled &&
       message.translation &&
@@ -18,6 +24,7 @@ export default function MessageList({
     ) {
       return message.translation.translated_content;
     }
+
     return message.content;
   };
 
