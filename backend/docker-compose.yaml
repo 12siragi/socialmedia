@@ -135,7 +135,7 @@ services:
   coqui-tts:
     image: ghcr.io/coqui-ai/tts:latest
     container_name: socialmedia-coqui
-    entrypoint: python
+    entrypoint: python3
     command: >
       TTS/server/server.py
       --model_name tts_models/en/ljspeech/tacotron2-DDC
